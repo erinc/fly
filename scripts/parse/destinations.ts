@@ -49,7 +49,7 @@ export function parseDestinations(
 
     // A "Charter:" subheading applies to following lines until the next
     // heading or a new (non-charter) subheading-like line.
-    if (/^charter\s*:?\s*$|^charter\s*:/i.test(strippedLine)) {
+    if (/^[*;\s]*charter\s*:?\s*$|^[*;\s]*charter\s*:/i.test(strippedLine)) {
       charterSection = true;
     } else if (HEADING.test(line)) {
       charterSection = false;

@@ -81,3 +81,28 @@ test("a seasonal listing plus a year-round listing is not seasonal", () => {
 test("returns an empty array when the section is missing", () => {
   expect(parseDestinations("== History ==\nnope", TITLES, NOW)).toEqual([]);
 });
+
+test("flags charter routes under a list-marker-prefixed subheading", () => {
+  const wt = `== Airlines and destinations ==
+* '''Charter:'''
+| [[Palma de Mallorca Airport]]`;
+  expect(parseDestinations(wt, TITLES, NOW)[0]?.charter).toBe(true);
+});
+
+test("does not stop the section at a nested subheading", () => {
+  const wt = `== Airlines and destinations ==
+| [[Heathrow Airport]]
+=== Charter ===
+| [[Faro Airport]]
+== References ==
+| [[Barcelona–El Prat Airport]]`;
+  expect(parseDestinations(wt, TITLES, NOW).map((d) => d.iata).sort()).toEqual(["FAO", "LHR"]);
+});
+
+test("stops the section at a sibling heading", () => {
+  const wt = `== Airlines and destinations ==
+| [[Heathrow Airport]]
+== References ==
+| [[Faro Airport]]`;
+  expect(parseDestinations(wt, TITLES, NOW).map((d) => d.iata)).toEqual(["LHR"]);
+});
