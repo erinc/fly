@@ -50,12 +50,15 @@ brand.className = "brand";
 brand.href = "/";
 brand.textContent = "✈️ fly.eric.fun";
 
+let panel: ReturnType<typeof createPanel>;
+
 const selector = createAirportSelector({
   airports: dataset.airports,
   onChange: (codes) => {
     state = { ...state, airports: codes };
     commit({ refocus: true });
   },
+  onMobileChoose: () => panel.close(),
 });
 
 let slider: ReturnType<typeof createSlider>;
@@ -97,7 +100,7 @@ const toggle = createToggle({
 
 const list = createList();
 
-const panel = createPanel(
+panel = createPanel(
   [brand, selector.el, slider.el, toggle.el, list.el],
   { initiallyOpen: state.airports.length === 0 },
 );

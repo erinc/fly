@@ -4,6 +4,7 @@ export type Panel = {
   el: HTMLElement;
   backdrop: HTMLButtonElement;
   trigger: HTMLButtonElement;
+  close: () => void;
 };
 
 /** Fixed left rail on wide screens, full-height overlay drawer on mobile. */
@@ -83,5 +84,5 @@ export function createPanel(
 
   el.append(drawerHeader, ...children);
   sync();
-  return { el, backdrop, trigger };
+  return { el, backdrop, trigger, close: () => setOpen(false) };
 }

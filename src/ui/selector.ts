@@ -6,6 +6,7 @@ import { MAX_AIRPORTS, originColor } from "../theme.js";
 export function createAirportSelector(opts: {
   airports: Airport[];
   onChange: (codes: string[]) => void;
+  onMobileChoose?: () => void;
 }) {
   let selected: string[] = [];
 
@@ -42,6 +43,7 @@ export function createAirportSelector(opts: {
 
   let active = -1;
   let current: Airport[] = [];
+  const mobile = window.matchMedia("(max-width: 760px)");
 
   const close = () => { results.hidden = true; active = -1; };
 
@@ -97,7 +99,13 @@ export function createAirportSelector(opts: {
     if (changed) selected.push(a.iata);
     input.value = "";
     close();
-    if (changed) sync();
+    if (changed) {
+      sync();
+      if (mobile.matches) {
+        input.blur();
+        opts.onMobileChoose?.();
+      }
+    }
   };
 
   const render = () => {
