@@ -1,7 +1,8 @@
 :root {
-  /* Colours mirror the palette in src/geo/projection.ts (COLORS) — that
-     module is the source of truth; CSS cannot import TypeScript, so the
-     values are duplicated here and must be kept in sync. */
+  /* Colours mirror the map's fill/border and the origin palette in
+     src/theme.ts — those modules are the source of truth; CSS cannot
+     import TypeScript, so the values are duplicated here and must be
+     kept in sync. */
   --ocean: #dceaf2;
   --land: #f2f0eb;
   --border: #b3ada2;
@@ -24,8 +25,10 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .map canvas, .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .map svg { pointer-events: none; }
 
-/* Sea. Leaflet draws the land GeoJSON over this. */
-.map .leaflet-container {
+/* Sea. Leaflet draws the land GeoJSON over this. Leaflet adds
+   "leaflet-container" to the same element passed to L.map(), not a child,
+   so this must be a compound selector rather than a descendant one. */
+.map.leaflet-container {
   background: var(--ocean);
   height: 100%;
   width: 100%;

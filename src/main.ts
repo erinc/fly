@@ -2,31 +2,32 @@
 import "./styles.css";
 import { loadDataset } from "./data/bundle.js";
 import { reachable, type Reachable } from "./reach/query.js";
-import { COLORS, createProjection } from "./geo/projection.js";
-import { drawBasemap } from "./render/basemap.js";
-import { drawReach, type Layer } from "./render/arcs.js";
-import { renderLabels, type CountryLabel } from "./render/labels.js";
-import { createPicker } from "./ui/picker.js";
+import { createMap } from "./map/map.js";
+import { createReachLayer, type OriginLayer } from "./map/layers.js";
+import { unwrappedBounds } from "./map/bounds.js";
+import { type CountryLabel } from "./render/labels.js";
+import { createLabelLayer } from "./map/labelLayer.js";
+import { createAirportSelector } from "./ui/selector.js";
 import { createSlider } from "./ui/slider.js";
 import { createToggle } from "./ui/toggle.js";
-import { createList } from "./ui/list.js";
+import { createList, type ListGroup } from "./ui/list.js";
 import { createPanel } from "./ui/panel.js";
+import { originColor, MAX_AIRPORTS } from "./theme.js";
 import { parseState, toSearch, type AppState } from "./state/url.js";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
-function renderLoadError(): void {
+function renderLoadError() {
   app.replaceChildren();
-  const msg = document.createElement("div");
-  msg.className = "load-error";
-  msg.textContent = "Couldn't load map data. Try reloading.";
-  app.appendChild(msg);
+  const p = document.createElement("p");
+  p.className = "load-error";
+  p.textContent = "Couldn't load map data. Try reloading.";
+  app.appendChild(p);
 }
 
 let dataset: Awaited<ReturnType<typeof loadDataset>>;
 let world: GeoJSON.FeatureCollection;
 let labels: CountryLabel[];
-
 try {
   [dataset, world, labels] = await Promise.all([
     loadDataset(),
@@ -34,137 +35,118 @@ try {
     fetch("/labels.json").then((r) => r.json()) as Promise<CountryLabel[]>,
   ]);
 } catch (err) {
-  console.error("Failed to load map data", err);
   renderLoadError();
   throw err;
 }
 
-const mapEl = document.createElement("div");
-mapEl.className = "map";
-const canvas = document.createElement("canvas");
-const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-mapEl.append(canvas, svg);
+let state: AppState = normalise(parseState(location.search));
 
-/**
- * Drops any airport code that isn't in this bundle (e.g. a stale or
- * hand-edited URL) and, if only the second slot is occupied, swaps it into
- * the first so single-origin queries always render as single-origin chrome.
- */
-function normalize(s: AppState): AppState {
-  const a = s.a && dataset.index.has(s.a) ? s.a : null;
-  const b = s.b && dataset.index.has(s.b) ? s.b : null;
-  if (a === null && b !== null) return { ...s, a: b, b: null };
-  return { ...s, a, b };
+/** Drop codes the dataset doesn't know, then cap. */
+function normalise(s: AppState): AppState {
+  const airports = s.airports
+    .filter((c) => dataset.index.has(c))
+    .slice(0, MAX_AIRPORTS);
+  return { ...s, airports };
 }
 
-let state: AppState = normalize(parseState(location.search));
+const mapEl = document.createElement("div");
+mapEl.className = "map";
 
 const brand = document.createElement("div");
 brand.className = "brand";
 brand.textContent = "fly.eric.fun";
 
-const pickerA = createPicker({
-  airports: dataset.airports, slot: "a", color: COLORS.originA,
-  onSelect: (iata) => { state = { ...state, a: iata }; highlight = null; commit(); },
+const selector = createAirportSelector({
+  airports: dataset.airports,
+  onChange: (codes) => {
+    state = { ...state, airports: codes };
+    commit({ refocus: true });
+  },
 });
-const pickerB = createPicker({
-  airports: dataset.airports, slot: "b", color: COLORS.originB,
-  onSelect: (iata) => { state = { ...state, b: iata }; highlight = null; commit(); },
-});
+
 const slider = createSlider({
   value: state.minutes,
   onInput: (minutes) => { state = { ...state, minutes }; draw(); },
-  onChange: (minutes) => { state = { ...state, minutes }; history.replaceState(null, "", toSearch(state)); },
+  onChange: (minutes) => { state = { ...state, minutes }; pushUrl(); },
 });
-const yearRoundToggle = createToggle({
-  label: "Year-round only",
+
+const toggle = createToggle({
+  label: "Year-round routes only",
   value: state.yearRoundOnly,
-  onChange: (yearRoundOnly) => { state = { ...state, yearRoundOnly }; commit(); },
+  onChange: (yearRoundOnly) => { state = { ...state, yearRoundOnly }; commit({ refocus: false }); },
 });
+
 const list = createList({
-  onHover: (airport) => { highlight = airport; draw(); },
-  onSelect: () => {},
+  onHover: () => {},
 });
 
 const footer = document.createElement("div");
 footer.className = "footer";
 footer.textContent = "Route data from Wikipedia (CC BY-SA 4.0) · Airports from OurAirports";
 
-const panel = createPanel([brand, pickerA.el, pickerB.el, slider.el, yearRoundToggle.el, list.el, footer]);
-app.append(panel, mapEl);
+const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el, footer]);
+app.replaceChildren(panel, mapEl);
 
-let highlight: number | null = null;
+const map = createMap(mapEl, world);
+const reachLayer = createReachLayer(map);
+createLabelLayer(map, labels);
 
-function currentLayers(): { layers: Layer[]; ra: Reachable[]; rb: Reachable[]; shared: Set<number> } {
-  const ia = state.a ? dataset.index.get(state.a) : undefined;
-  const ib = state.b ? dataset.index.get(state.b) : undefined;
+function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
   const opts = { yearRoundOnly: state.yearRoundOnly };
-  const ra = ia === undefined ? [] : reachable(dataset, ia, state.minutes, opts);
-  const rb = ib === undefined ? [] : reachable(dataset, ib, state.minutes, opts);
-  const shared = new Set<number>();
-
-  const layers: Layer[] = [];
-  if (ia !== undefined) layers.push({ origin: dataset.airports[ia]!, destinations: ra, color: COLORS.originA });
-  if (ib !== undefined) layers.push({ origin: dataset.airports[ib]!, destinations: rb, color: COLORS.originB });
-  return { layers, ra, rb, shared };
+  const layers: OriginLayer[] = [];
+  const listGroups: ListGroup[] = [];
+  state.airports.forEach((code, i) => {
+    const idx = dataset.index.get(code);
+    if (idx === undefined) return;
+    const origin = dataset.airports[idx]!;
+    const destinations: Reachable[] = reachable(dataset, idx, state.minutes, opts);
+    const color = originColor(i);
+    layers.push({ origin, destinations, color });
+    listGroups.push({ origin, color, destinations });
+  });
+  return { layers, listGroups };
 }
 
 function draw(): void {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = mapEl.clientWidth;
-  const h = mapEl.clientHeight;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-
-  const ctx = canvas.getContext("2d")!;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  const projection = createProjection(w, h);
-  drawBasemap(ctx, world, projection, w, h);
-  renderLabels(svg, labels, projection, 1);
-
-  const { layers, ra, rb, shared } = currentLayers();
-  drawReach(ctx, projection, dataset.airports, layers, shared);
-
-  if (highlight !== null) {
-    const ap = dataset.airports[highlight];
-    const xy = ap && projection([ap.lon, ap.lat]);
-    if (xy) {
-      ctx.strokeStyle = COLORS.shared;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(xy[0], xy[1], 7, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-
-  list.update({
-    airports: dataset.airports, a: ra, b: rb, shared,
-    labelA: state.a ?? "", labelB: state.b,
-  });
+  const { layers, listGroups } = groups();
+  reachLayer.update(layers, dataset.airports);
+  list.update({ airports: dataset.airports, groups: listGroups });
 }
 
-function commit(): void {
-  state = normalize(state);
-  pickerA.setValue(state.a);
-  pickerB.setValue(state.b);
-  yearRoundToggle.setValue(state.yearRoundOnly);
+/** Fit the view to the current selection. Only ever called on selection change. */
+function refocus(): void {
+  const { layers } = groups();
+  const pts = layers.flatMap((l) => [
+    { lat: l.origin.lat, lon: l.origin.lon },
+    ...l.destinations.flatMap((d) => {
+      const a = dataset.airports[d.airport];
+      return a ? [{ lat: a.lat, lon: a.lon }] : [];
+    }),
+  ]);
+  const b = unwrappedBounds(pts);
+  if (b) map.fitBounds(b, { padding: [40, 40], maxZoom: 6 });
+}
+
+function pushUrl(): void {
   history.replaceState(null, "", toSearch(state));
-  draw();
 }
 
-window.addEventListener("resize", draw);
-window.addEventListener("popstate", () => {
-  state = normalize(parseState(location.search));
-  pickerA.setValue(state.a);
-  pickerB.setValue(state.b);
-  slider.setValue(state.minutes);
-  yearRoundToggle.setValue(state.yearRoundOnly);
+function commit({ refocus: shouldRefocus }: { refocus: boolean }): void {
+  pushUrl();
   draw();
+  if (shouldRefocus) refocus();
+}
+
+window.addEventListener("popstate", () => {
+  state = normalise(parseState(location.search));
+  selector.setValue(state.airports);
+  slider.setValue(state.minutes);
+  toggle.setValue(state.yearRoundOnly);
+  draw();
+  refocus();
 });
 
-pickerA.setValue(state.a);
-pickerB.setValue(state.b);
-history.replaceState(null, "", toSearch(state));
+selector.setValue(state.airports);
+pushUrl();
 draw();
+if (state.airports.length > 0) refocus();

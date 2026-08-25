@@ -63,10 +63,10 @@ further detail.
   International Airport"; `BGO` → "Flesland Air Station"; `ZAZ` → "Zaragoza
   Air Base". The obvious fix is a small manual override map from IATA code to
   the correct Wikipedia article; not yet implemented.
-- **No pan or zoom.** The map renders at a fixed extent. Clicking a
-  destination row does not pan to it, and label density does not vary with
-  zoom. Hover-to-highlight on the destination list does work. This is a
-  deliberate deferral — see the design spec for the follow-up task.
+- **Interactive map.** The map is a Leaflet surface: pan, zoom, hover
+  tooltips on destination dots, and auto-focus on selection changes are all
+  supported, and label density adapts to zoom level. Up to three airports
+  can be compared at once, each drawn in its own colour.
 
 ## Deployment
 
