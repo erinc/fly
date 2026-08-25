@@ -41,7 +41,11 @@ function splitCsvLine(line: string): string[] {
 export function parseAirportsCsv(csv: string): AirportRow[] {
   const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== "");
   const header = splitCsvLine(lines[0] ?? "");
-  const col = (name: string) => header.indexOf(name);
+  const col = (name: string) => {
+    const i = header.indexOf(name);
+    if (i === -1) throw new Error(`ourairports CSV is missing the "${name}" column`);
+    return i;
+  };
   const iType = col("type");
   const iName = col("name");
   const iLat = col("latitude_deg");

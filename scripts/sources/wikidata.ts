@@ -21,7 +21,13 @@ export function parseSparqlBindings(json: unknown): Record<string, string> {
     const url = b.art?.value;
     if (!iata || !url) continue;
     const slug = url.slice(url.lastIndexOf("/") + 1);
-    map[iata] = decodeURIComponent(slug).replace(/_/g, " ");
+    try {
+      map[iata] = decodeURIComponent(slug).replace(/_/g, " ");
+    } catch {
+      // Malformed percent-encoding in a title slug — skip this binding
+      // rather than aborting the whole crawl.
+      continue;
+    }
   }
   return map;
 }
