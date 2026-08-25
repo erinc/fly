@@ -9,80 +9,152 @@ export type ListGroup = {
   destinations: Reachable[];
 };
 
+const PANEL_ID = "list-tabpanel";
+
 export function createList(opts: { onHover: (airport: number | null) => void }) {
   const el = document.createElement("div");
   el.className = "list";
 
-  function section(group: ListGroup, airports: Airport[]) {
-    const wrap = document.createElement("section");
+  // Active tab, tracked by IATA code (not index) so it survives re-renders
+  // triggered by the slider or the year-round toggle without jumping back
+  // to the first tab.
+  let activeIata: string | null = null;
+  let lastArgs: { airports: Airport[]; groups: ListGroup[] } | null = null;
 
-    const head = document.createElement("div");
-    head.className = "label";
-    const dot = document.createElement("i");
-    dot.className = "dot";
-    dot.style.background = group.color;
-    const text = document.createElement("span");
-    text.textContent = `${group.origin.city || group.origin.name} · ${group.destinations.length}`;
-    head.append(dot, text);
-    wrap.appendChild(head);
+  function destinationRow(r: Reachable, airports: Airport[]) {
+    const ap = airports[r.airport];
+    if (!ap) return null;
+    const row = document.createElement("button");
+    row.className = "row";
+    row.type = "button";
 
+    const left = document.createElement("span");
+    left.append(document.createTextNode(`${ap.city || ap.name} `));
+    const code = document.createElement("em");
+    code.textContent = ap.iata;
+    left.appendChild(code);
+    if (r.seasonal) {
+      const tag = document.createElement("i");
+      tag.className = "tag";
+      tag.textContent = "seasonal";
+      left.append(" ", tag);
+    }
+    if (r.charter) {
+      const tag = document.createElement("i");
+      tag.className = "tag";
+      tag.textContent = "charter";
+      left.append(" ", tag);
+    }
+
+    const right = document.createElement("span");
+    right.className = "mut";
+    right.textContent = formatDuration(r.minutes);
+
+    row.append(left, right);
+    row.addEventListener("mouseenter", () => opts.onHover(r.airport));
+    row.addEventListener("mouseleave", () => opts.onHover(null));
+    return row;
+  }
+
+  function renderPanelBody(panel: HTMLElement, group: ListGroup, airports: Airport[]) {
     if (group.destinations.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty";
       empty.textContent = "No nonstop destinations within this flight time.";
-      wrap.appendChild(empty);
-      return wrap;
+      panel.appendChild(empty);
+      return;
     }
-
     for (const r of group.destinations) {
-      const ap = airports[r.airport];
-      if (!ap) continue;
-      const row = document.createElement("button");
-      row.className = "row";
-      row.type = "button";
-
-      const left = document.createElement("span");
-      left.append(document.createTextNode(`${ap.city || ap.name} `));
-      const code = document.createElement("em");
-      code.textContent = ap.iata;
-      left.appendChild(code);
-      if (r.seasonal) {
-        const tag = document.createElement("i");
-        tag.className = "tag";
-        tag.textContent = "seasonal";
-        left.append(" ", tag);
-      }
-      if (r.charter) {
-        const tag = document.createElement("i");
-        tag.className = "tag";
-        tag.textContent = "charter";
-        left.append(" ", tag);
-      }
-
-      const right = document.createElement("span");
-      right.className = "mut";
-      right.textContent = formatDuration(r.minutes);
-
-      row.append(left, right);
-      row.addEventListener("mouseenter", () => opts.onHover(r.airport));
-      row.addEventListener("mouseleave", () => opts.onHover(null));
-      wrap.appendChild(row);
+      const row = destinationRow(r, airports);
+      if (row) panel.appendChild(row);
     }
-    return wrap;
+  }
+
+  function activate(iata: string) {
+    if (!lastArgs) return;
+    activeIata = iata;
+    render(lastArgs);
+  }
+
+  function render({ airports, groups }: { airports: Airport[]; groups: ListGroup[] }) {
+    lastArgs = { airports, groups };
+    el.replaceChildren();
+
+    if (groups.length === 0) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = "Add an airport to see where you can fly nonstop.";
+      el.appendChild(p);
+      return;
+    }
+
+    // Resolve the active group: keep the current selection if it's still
+    // present, otherwise fall back to the first remaining group.
+    const activeGroup = groups.find((g) => g.origin.iata === activeIata) ?? groups[0]!;
+    activeIata = activeGroup.origin.iata;
+
+    if (groups.length >= 2) {
+      const tablist = document.createElement("div");
+      tablist.className = "tabs";
+      tablist.setAttribute("role", "tablist");
+
+      const tabButtons: HTMLButtonElement[] = [];
+
+      groups.forEach((g, i) => {
+        const tabId = `list-tab-${g.origin.iata}`;
+        const isActive = g.origin.iata === activeIata;
+
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.className = isActive ? "tab active" : "tab";
+        tab.id = tabId;
+        tab.setAttribute("role", "tab");
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+        tab.setAttribute("aria-controls", PANEL_ID);
+        tab.tabIndex = isActive ? 0 : -1;
+
+        const dot = document.createElement("i");
+        dot.className = "dot";
+        dot.style.background = g.color;
+        const text = document.createElement("span");
+        text.textContent = `${g.origin.city || g.origin.name} · ${g.destinations.length}`;
+        tab.append(dot, text);
+
+        tab.addEventListener("click", () => {
+          if (activeIata !== g.origin.iata) activate(g.origin.iata);
+        });
+
+        tab.addEventListener("keydown", (ev) => {
+          if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+          ev.preventDefault();
+          const delta = ev.key === "ArrowRight" ? 1 : -1;
+          const nextIndex = (i + delta + groups.length) % groups.length;
+          const nextGroup = groups[nextIndex];
+          if (!nextGroup) return;
+          activate(nextGroup.origin.iata);
+          tabButtons[nextIndex]?.focus();
+        });
+
+        tabButtons.push(tab);
+        tablist.appendChild(tab);
+      });
+
+      el.appendChild(tablist);
+    }
+
+    const panel = document.createElement("div");
+    panel.id = PANEL_ID;
+    panel.className = "tabpanel";
+    if (groups.length >= 2) {
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", `list-tab-${activeIata}`);
+    }
+    renderPanelBody(panel, activeGroup, airports);
+    el.appendChild(panel);
   }
 
   return {
     el,
-    update({ airports, groups }: { airports: Airport[]; groups: ListGroup[] }) {
-      el.replaceChildren();
-      if (groups.length === 0) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent = "Add an airport to see where you can fly nonstop.";
-        el.appendChild(p);
-        return;
-      }
-      for (const g of groups) el.appendChild(section(g, airports));
-    },
+    update: render,
   };
 }
