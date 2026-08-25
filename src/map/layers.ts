@@ -45,25 +45,29 @@ export function createReachLayer(map: L.Map) {
     }
 
     // One dot per destination, carrying every origin that reaches it.
+    // Colour is captured here, from the first origin that reaches each
+    // destination (matching its arcs), so update() doesn't need to re-scan
+    // `layers` per destination below.
     const legsByAirport = new Map<number, OriginLeg[]>();
+    const colorByAirport = new Map<number, string>();
     for (const layer of layers) {
       for (const d of layer.destinations) {
         const legs = legsByAirport.get(d.airport) ?? [];
         legs.push({ iata: layer.origin.iata, minutes: d.minutes });
         legsByAirport.set(d.airport, legs);
+        if (!colorByAirport.has(d.airport)) colorByAirport.set(d.airport, layer.color);
       }
     }
 
     for (const [index, legs] of legsByAirport) {
       const dest = airports[index];
       if (!dest) continue;
-      // Colour by the first origin that reaches it, matching its arcs.
-      const first = layers.find((l) => l.destinations.some((d) => d.airport === index));
+      const color = colorByAirport.get(index) ?? "#111";
       const marker = L.circleMarker([dest.lat, dest.lon], {
         renderer,
         radius: 3,
-        color: first?.color ?? "#111",
-        fillColor: first?.color ?? "#111",
+        color,
+        fillColor: color,
         fillOpacity: 1,
         weight: 0,
       }).addTo(group);
