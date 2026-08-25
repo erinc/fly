@@ -100,62 +100,58 @@ export function createList() {
     const activeGroup = groups.find((g) => g.origin.iata === activeIata) ?? groups[0]!;
     activeIata = activeGroup.origin.iata;
 
-    if (groups.length >= 2) {
-      const tablist = document.createElement("div");
-      tablist.className = "tabs";
-      tablist.setAttribute("role", "tablist");
+    const tablist = document.createElement("div");
+    tablist.className = "tabs";
+    tablist.setAttribute("role", "tablist");
 
-      const tabButtons: HTMLButtonElement[] = [];
+    const tabButtons: HTMLButtonElement[] = [];
 
-      groups.forEach((g, i) => {
-        const tabId = `list-tab-${g.origin.iata}`;
-        const isActive = g.origin.iata === activeIata;
+    groups.forEach((g, i) => {
+      const tabId = `list-tab-${g.origin.iata}`;
+      const isActive = g.origin.iata === activeIata;
 
-        const tab = document.createElement("button");
-        tab.type = "button";
-        tab.className = isActive ? "tab active" : "tab";
-        tab.id = tabId;
-        tab.setAttribute("role", "tab");
-        tab.setAttribute("aria-selected", isActive ? "true" : "false");
-        tab.setAttribute("aria-controls", PANEL_ID);
-        tab.tabIndex = isActive ? 0 : -1;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = isActive ? "tab active" : "tab";
+      tab.id = tabId;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", isActive ? "true" : "false");
+      tab.setAttribute("aria-controls", PANEL_ID);
+      tab.tabIndex = isActive ? 0 : -1;
 
-        const dot = document.createElement("i");
-        dot.className = "dot";
-        dot.style.background = g.color;
-        const text = document.createElement("span");
-        text.textContent = `${g.origin.iata} · ${g.destinations.length}`;
-        tab.append(dot, text);
+      const dot = document.createElement("i");
+      dot.className = "dot";
+      dot.style.background = g.color;
+      const text = document.createElement("span");
+      text.textContent = `${g.origin.iata} · ${g.destinations.length}`;
+      tab.append(dot, text);
 
-        tab.addEventListener("click", () => {
-          if (activeIata !== g.origin.iata) activate(g.origin.iata);
-        });
-
-        tab.addEventListener("keydown", (ev) => {
-          if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
-          ev.preventDefault();
-          const delta = ev.key === "ArrowRight" ? 1 : -1;
-          const nextIndex = (i + delta + groups.length) % groups.length;
-          const nextGroup = groups[nextIndex];
-          if (!nextGroup) return;
-          activate(nextGroup.origin.iata);
-          tabButtons[nextIndex]?.focus();
-        });
-
-        tabButtons.push(tab);
-        tablist.appendChild(tab);
+      tab.addEventListener("click", () => {
+        if (activeIata !== g.origin.iata) activate(g.origin.iata);
       });
 
-      el.appendChild(tablist);
-    }
+      tab.addEventListener("keydown", (ev) => {
+        if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+        ev.preventDefault();
+        const delta = ev.key === "ArrowRight" ? 1 : -1;
+        const nextIndex = (i + delta + groups.length) % groups.length;
+        const nextGroup = groups[nextIndex];
+        if (!nextGroup) return;
+        activate(nextGroup.origin.iata);
+        tabButtons[nextIndex]?.focus();
+      });
+
+      tabButtons.push(tab);
+      tablist.appendChild(tab);
+    });
+
+    el.appendChild(tablist);
 
     const panel = document.createElement("div");
     panel.id = PANEL_ID;
     panel.className = "tabpanel";
-    if (groups.length >= 2) {
-      panel.setAttribute("role", "tabpanel");
-      panel.setAttribute("aria-labelledby", `list-tab-${activeIata}`);
-    }
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", `list-tab-${activeIata}`);
     renderPanelBody(panel, activeGroup, airports);
     el.appendChild(panel);
   }
