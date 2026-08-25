@@ -7,7 +7,7 @@
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true
   },
