@@ -114,3 +114,36 @@ test("stops the section at a sibling heading", () => {
 | [[Faro Airport]]`;
   expect(parseDestinations(wt, TITLES, NOW).map((d) => d.iata)).toEqual(["LHR"]);
 });
+
+test("finds a heading that carries a trailing HTML comment", () => {
+  const wt = `==Airlines and destinations==<!-- This section is linked from [[Alaska]] -->
+| [[Heathrow Airport]]`;
+  expect(findDestinationSection(wt)?.trim()).toBe("| [[Heathrow Airport]]");
+});
+
+test("does not treat a wikilink found only inside an HTML comment as a destination", () => {
+  const wt = `== Airlines and destinations ==
+<!--DO NOT ADD OR REMOVE ROUTES WITHOUT A SOURCE, e.g. [[Faro Airport]]-->
+| [[Heathrow Airport]]`;
+  const codes = parseDestinations(wt, TITLES, NOW).map((d) => d.iata);
+  expect(codes).toEqual(["LHR"]);
+});
+
+test("a multi-line HTML comment inside the section does not break parsing of destinations after it", () => {
+  const wt = `== Airlines and destinations ==
+| [[Heathrow Airport]]
+<!-- this is a
+multi-line comment
+mentioning [[Faro Airport]] -->
+| [[Barcelona–El Prat Airport|Barcelona]]`;
+  const codes = parseDestinations(wt, TITLES, NOW).map((d) => d.iata).sort();
+  expect(codes).toEqual(["BCN", "LHR"]);
+});
+
+test("a later heading carrying a trailing comment still terminates the section", () => {
+  const wt = `== Airlines and destinations ==
+| [[Heathrow Airport]]
+== References ==<!-- some note -->
+| [[Faro Airport]]`;
+  expect(parseDestinations(wt, TITLES, NOW).map((d) => d.iata)).toEqual(["LHR"]);
+});

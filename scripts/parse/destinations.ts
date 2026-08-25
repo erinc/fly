@@ -3,10 +3,29 @@ export type Destination = { iata: string; seasonal: boolean; charter: boolean };
 const HEADING = /^(=+)\s*(.+?)\s*=+\s*$/;
 const DEST_HEADING = /airlines?\s+and\s+destinations/i;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+const HTML_COMMENT = /<!--[\s\S]*?-->/g;
+
+// Wikipedia heading lines frequently carry a trailing HTML comment (e.g.
+// "==Airlines and destinations==<!-- linked from [[Alaska]] -->"), which
+// breaks the anchored HEADING regex and also breaks the section-termination
+// scan for later headings. Comments also sometimes wrap wikilinks (edit
+// notices such as "<!--DO NOT ADD ROUTES WITHOUT ... [[Some Airport]]-->"),
+// which must never be parsed as real destinations.
+//
+// We strip comment *content* but preserve every newline inside the comment,
+// rather than collapsing the whole match to nothing/one space. That keeps
+// line numbers and line boundaries identical to the original wikitext: a
+// comment that spans several lines does not merge the line before it with
+// the line after it, so per-line "begins"/"ends" annotation scoping still
+// attaches to the correct destination even when a comment sits between or
+// beside wikilinks on adjacent lines.
+function stripHtmlComments(wikitext: string): string {
+  return wikitext.replace(HTML_COMMENT, (m) => m.replace(/[^\n]/g, ""));
+}
 
 /** Returns the wikitext of the destinations section, or null if absent. */
 export function findDestinationSection(wikitext: string): string | null {
-  const lines = wikitext.split(/\r?\n/);
+  const lines = stripHtmlComments(wikitext).split(/\r?\n/);
   let start = -1;
   let level = 0;
   for (let i = 0; i < lines.length; i++) {
@@ -37,7 +56,7 @@ export function parseDestinations(
   titleToIata: Record<string, string>,
   now: Date = new Date(),
 ): Destination[] {
-  const section = findDestinationSection(wikitext);
+  const section = findDestinationSection(stripHtmlComments(wikitext));
   if (section === null) return [];
 
   const found = new Map<string, Destination>();
