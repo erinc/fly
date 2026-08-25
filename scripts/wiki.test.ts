@@ -46,6 +46,20 @@ test("extractPages follows redirect normalisation back to the requested title", 
   expect(pages.get("London Heathrow Airport")).toBe("x");
 });
 
+test("extractPages resolves chained normalized + redirect hops back to the raw title", () => {
+  const json = {
+    query: {
+      normalized: [{ from: "heathrow airport", to: "Heathrow airport" }],
+      redirects: [{ from: "Heathrow airport", to: "Heathrow Airport" }],
+      pages: [{ title: "Heathrow Airport", revisions: [{ slots: { main: { content: "y" } } }] }],
+    },
+  };
+  const pages = extractPages(json);
+  expect(pages.get("heathrow airport")).toBe("y");
+  expect(pages.get("Heathrow airport")).toBe("y");
+  expect(pages.get("Heathrow Airport")).toBe("y");
+});
+
 test("extractPages skips missing pages", () => {
   const json = { query: { pages: [{ title: "Nope", missing: true }] } };
   expect(extractPages(json).size).toBe(0);

@@ -34,7 +34,18 @@ type ApiResponse = {
   };
 };
 
-/** Maps every requested title (pre- and post-redirect) to its wikitext. */
+/**
+ * Maps every requested title (raw, normalized, and post-redirect) to its
+ * wikitext. MediaWiki resolves titles as `raw -> normalized -> redirect
+ * target -> final page`, and the API returns `normalized` and `redirects`
+ * hops in arbitrary order (not necessarily resolution order), so a single
+ * ordered pass over `[...normalized, ...redirects]` can miss chains where a
+ * title needs both hops (the `normalized -> to` step processed before the
+ * `raw -> normalized` step leaves `raw` unpopulated). Instead, repeatedly
+ * walk all hops, propagating content backwards, until a full pass adds
+ * nothing new — an order-independent fixed point. Capped at hops.length + 1
+ * iterations as a cycle guard (a well-formed response can't need more).
+ */
 export function extractPages(json: unknown): Map<string, string> {
   const q = (json as ApiResponse).query ?? {};
   const byTitle = new Map<string, string>();
@@ -43,9 +54,18 @@ export function extractPages(json: unknown): Map<string, string> {
     if (p.missing || !content) continue;
     byTitle.set(p.title, content);
   }
-  for (const hop of [...(q.normalized ?? []), ...(q.redirects ?? [])]) {
-    const content = byTitle.get(hop.to);
-    if (content !== undefined) byTitle.set(hop.from, content);
+  const hops = [...(q.normalized ?? []), ...(q.redirects ?? [])];
+  for (let pass = 0; pass <= hops.length; pass++) {
+    let added = false;
+    for (const hop of hops) {
+      if (byTitle.has(hop.from)) continue;
+      const content = byTitle.get(hop.to);
+      if (content !== undefined) {
+        byTitle.set(hop.from, content);
+        added = true;
+      }
+    }
+    if (!added) break;
   }
   return byTitle;
 }
