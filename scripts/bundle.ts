@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { greatCircleKm } from "../src/geo/distance.js";
 import { durationMinutes } from "../src/geo/duration.js";
-import { decodeRoutes, encodeRoutes, FLAG_CHARTER, FLAG_SEASONAL, type RouteRecord } from "../src/data/format.js";
+import { decodeRoutes, encodeRoutes, type RouteRecord } from "../src/data/format.js";
 import { parseAirportsCsv, type AirportRow } from "./sources/ourairports.js";
 import type { Destination } from "./parse/destinations.js";
 import { resolveCityName } from "./city-name.js";
+import { collectPairs } from "./pairs.js";
 
 const RAW = new URL("../data/raw/", import.meta.url);
 const CACHE = new URL("../data/cache/", import.meta.url);
@@ -48,7 +49,7 @@ if (files.length === 0) {
 }
 
 // Collect undirected pairs, keeping the strongest claim about each.
-const pairs = new Map<string, { a: string; b: string; flags: number }>();
+const docs: { iata: string; destinations: Destination[] }[] = [];
 let withDestinations = 0;
 
 for (const file of files) {
@@ -57,17 +58,10 @@ for (const file of files) {
     destinations: Destination[];
   };
   if (doc.destinations.length > 0) withDestinations++;
-  for (const d of doc.destinations) {
-    if (!byIata.has(doc.iata) || !byIata.has(d.iata) || doc.iata === d.iata) continue;
-    const [a, b] = [doc.iata, d.iata].sort() as [string, string];
-    const key = `${a} ${b}`;
-    const flags = (d.seasonal ? FLAG_SEASONAL : 0) | (d.charter ? FLAG_CHARTER : 0);
-    const prev = pairs.get(key);
-    // A route claimed year-round by either endpoint is year-round.
-    if (prev) prev.flags &= flags;
-    else pairs.set(key, { a, b, flags });
-  }
+  docs.push(doc);
 }
+
+const pairs = collectPairs(docs, byIata);
 
 const coverage = withDestinations / files.length;
 console.log(`coverage: ${withDestinations}/${files.length} (${(coverage * 100).toFixed(1)}%)`);
@@ -85,6 +79,10 @@ const index = new Map(airports.map((a, i) => [a.iata, i]));
 for (const a of airports) {
   if (!Number.isFinite(a.lat) || !Number.isFinite(a.lon)) fail(`${a.iata} has no coordinates`);
 }
+
+// Route records store airport indices as Uint16, which silently wraps past
+// 65535 rather than throwing — so the count must be checked explicitly here.
+if (airports.length > 65535) fail(`${airports.length} airports exceeds the Uint16 index limit of 65535`);
 
 const routes: RouteRecord[] = [];
 for (const p of pairs.values()) {
