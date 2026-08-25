@@ -16,8 +16,16 @@ export function createMap(
   const map = L.map(container, {
     center: [30, 10],
     zoom: 2,
+    // minZoom/maxZoom stay whole-level bounds: the basemap is Natural Earth
+    // 110m vector data, which looks visibly angular/low-res past zoom 8, so
+    // the ceiling stays put even though zooming itself is now fractional.
     minZoom: 2,
     maxZoom: 8,
+    // Fractional zoom so scroll/pinch/dbl-click feel smooth instead of
+    // snapping a whole level at a time.
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 120,
     zoomControl: true,
     attributionControl: false,
     worldCopyJump: false,
