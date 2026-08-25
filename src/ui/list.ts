@@ -46,13 +46,6 @@ export function createList() {
       tag.textContent = "seasonal";
       left.append(" ", tag);
     }
-    if (r.charter) {
-      const tag = document.createElement("i");
-      tag.className = "tag";
-      tag.textContent = "charter";
-      left.append(" ", tag);
-    }
-
     const right = document.createElement("span");
     right.className = "mut";
     right.textContent = formatDuration(r.minutes);
