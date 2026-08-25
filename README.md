@@ -1,6 +1,6 @@
 # fly.eric.fun
 
-A minimal world map showing every nonstop destination reachable from one or two
+A minimal world map showing every nonstop destination reachable from up to three
 airports within a given flight time.
 
 ## Development
@@ -17,7 +17,6 @@ crawl required.
 
 ```bash
 npm run crawl -- --all     # ~80 batched requests, ~4 minutes
-npm run basemap            # Natural Earth basemap + country labels
 npm run bundle             # compile data/raw/ -> public/
 ```
 
@@ -48,7 +47,8 @@ overwrite the dataset.
   are derivative works and carry the same licence.
 - Airport metadata: **OurAirports**, public domain.
 - Airport identifiers: **Wikidata** (`P238`), CC0.
-- Basemap: **Natural Earth**, public domain.
+- Basemap: **CARTO Positron**, derived from OpenStreetMap. Attribution is
+  displayed on the map.
 
 Flight durations are **estimated**, not sourced: `0.66 + km / 790` hours,
 calibrated to within 14 minutes over the 0.5–8h range. See the design spec for
@@ -63,10 +63,11 @@ further detail.
   International Airport"; `BGO` → "Flesland Air Station"; `ZAZ` → "Zaragoza
   Air Base". The obvious fix is a small manual override map from IATA code to
   the correct Wikipedia article; not yet implemented.
-- **Interactive map.** The map is a Leaflet surface: pan, zoom, hover
-  tooltips on destination dots, and auto-focus on selection changes are all
-  supported, and label density adapts to zoom level. Up to three airports
-  can be compared at once, each drawn in its own colour.
+- **Interactive map.** MapLibre renders the CARTO vector basemap, flight arcs,
+  and airport dots together on the GPU. Pan, continuous wheel/pinch zoom,
+  hover tooltips on destination dots, and auto-focus on selection changes are
+  supported. Up to three airports can be compared at once, each drawn in its
+  own colour.
 
 ## Deployment
 

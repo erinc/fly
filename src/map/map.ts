@@ -1,64 +1,61 @@
-// src/map/map.ts
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import {
+  AttributionControl,
+  Map as MapLibreMap,
+  NavigationControl,
+  setWorkerUrl,
+} from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
-export const LABEL_PANE = "labels";
+// MapLibre 6 ships its vector-tile worker separately. Vite must bundle that
+// worker explicitly; otherwise development and production can silently look
+// like an empty map while the missing worker never processes any tiles.
+setWorkerUrl(workerUrl);
+
+const CARTO_POSITRON_STYLE =
+  "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 /**
- * The map surface. No tile layer: the basemap is the same Natural Earth
- * GeoJSON the canvas renderer used, so the app makes no external requests and
- * still works offline. The sea is the container background, set in styles.css.
+ * GPU-rendered map surface backed by CARTO's Positron vector basemap.
+ * MapLibre handles wheel and pinch input continuously and keeps basemap and
+ * application layers in one WebGL scene.
  */
-export function createMap(
-  container: HTMLElement,
-  world: GeoJSON.FeatureCollection,
-): L.Map {
-  const map = L.map(container, {
-    center: [30, 10],
-    zoom: 2,
-    // minZoom/maxZoom stay whole-level bounds: the basemap is Natural Earth
-    // 110m vector data, which looks visibly angular/low-res past zoom 8, so
-    // the ceiling stays put even though zooming itself is now fractional.
-    minZoom: 2,
+export async function createMap(container: HTMLElement): Promise<MapLibreMap> {
+  const map = new MapLibreMap({
+    container,
+    style: CARTO_POSITRON_STYLE,
+    center: [10, 30],
+    zoom: 1,
+    minZoom: 1,
     maxZoom: 8,
-    // Fractional zoom so scroll/pinch/dbl-click feel smooth instead of
-    // snapping a whole level at a time.
-    zoomSnap: 0.25,
-    zoomDelta: 0.5,
-    wheelPxPerZoomLevel: 120,
-    zoomControl: true,
+    renderWorldCopies: false,
     attributionControl: false,
-    worldCopyJump: false,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+    canvasContextAttributes: { antialias: true },
   });
 
-  // Labels sit above markers (600) but below tooltips (650) — both are
-  // Leaflet built-in panes, see leaflet.css — and must never swallow pointer
-  // events aimed at destination dots.
-  map.createPane(LABEL_PANE);
-  const labelPane = map.getPane(LABEL_PANE)!;
-  labelPane.style.zIndex = "620";
-  labelPane.style.pointerEvents = "none";
+  map.touchZoomRotate.disableRotation();
+  map.addControl(new NavigationControl({ showCompass: false }), "top-left");
+  map.addControl(new AttributionControl({ compact: true }), "bottom-right");
 
-  // The basemap gets its own pane below Leaflet's overlayPane (400), rather
-  // than relying on the default renderer. Leaflet's stylesheet gives
-  // .leaflet-map-pane canvas a z-index of 100 and svg a z-index of 200 -
-  // *within* a pane - so an unrendered L.geoJSON (which defaults to SVG)
-  // would paint above the reach layer's L.canvas() arcs regardless of pane
-  // order, hiding every arc that crosses land. Giving the basemap its own
-  // pane sidesteps that canvas-vs-svg ordering entirely.
-  map.createPane("basemap");
-  map.getPane("basemap")!.style.zIndex = "350";
+  await new Promise<void>((resolve, reject) => {
+    const ready = () => {
+      window.clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = window.setTimeout(() => {
+      map.off("style.load", ready);
+      map.remove();
+      reject(new Error("The vector basemap did not load in time."));
+    }, 15_000);
 
-  L.geoJSON(world, {
-    pane: "basemap",
-    interactive: false,
-    style: {
-      fillColor: "#f2f0eb",
-      fillOpacity: 1,
-      color: "#b3ada2",
-      weight: 0.5,
-    },
-  }).addTo(map);
+    // App layers only need the style graph to exist. Waiting for MapLibre's
+    // broader `load` event also waits for the first visible tile set, which
+    // can unnecessarily hold the sidebar hostage on a slow connection.
+    map.once("style.load", ready);
+  });
 
   return map;
 }

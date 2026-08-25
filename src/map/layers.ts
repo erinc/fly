@@ -1,10 +1,14 @@
-// src/map/layers.ts
-import L from "leaflet";
+import {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  Popup,
+  type MapLayerMouseEvent,
+} from "maplibre-gl";
+import type { Feature, FeatureCollection } from "geojson";
 import { arcSegments } from "../geo/arc.js";
 import type { Airport } from "../data/bundle.js";
 import type { Reachable } from "../reach/query.js";
 import { tooltipLines, type OriginLeg } from "./tooltip.js";
-import { MAX_AIRPORTS } from "../theme.js";
 
 export type OriginLayer = {
   origin: Airport;
@@ -14,295 +18,274 @@ export type OriginLayer = {
 
 const ARC_STEPS = 48;
 
-const ARC_BASE_STYLE = { weight: 0.9, opacity: 0.55 };
-const ARC_HIGHLIGHT_STYLE = { weight: 2.6, opacity: 1 };
-const DOT_BASE_RADIUS = 3;
-const DOT_HIGHLIGHT_RADIUS = 5.5;
+const ROUTES_SOURCE = "flight-routes";
+const DESTINATIONS_SOURCE = "flight-destinations";
+const ORIGINS_SOURCE = "flight-origins";
+const HIGHLIGHT_SOURCE = "flight-highlight";
 
-type HighlightArc = { latlngs: [number, number][]; color: string };
-type HighlightData = { arcs: HighlightArc[]; lat: number; lon: number };
+const ROUTES_LAYER = "flight-routes-line";
+const HIGHLIGHT_ROUTES_LAYER = "flight-highlight-line";
+const HIGHLIGHT_DOT_LAYER = "flight-highlight-dot";
+const DESTINATIONS_LAYER = "flight-destination-dots";
+const ORIGIN_RING_LAYER = "flight-origin-rings";
+const ORIGINS_LAYER = "flight-origin-dots";
 
-// A destination can be reached from at most MAX_AIRPORTS origins (the app
-// caps the selected-airport list at that length). Each origin's arc is one
-// great-circle path, and splitAtAntimeridian only ever produces 2 segments
-// for a single path (one possible crossing of the seam) — a great circle
-// between two points crosses any given meridian at most once. So the worst
-// case for one destination is MAX_AIRPORTS * 2 polyline segments; that's
-// the fixed pool size below. Sized from that reasoning, not a guess.
-const HIGHLIGHT_POOL_SIZE = MAX_AIRPORTS * 2;
+const emptyCollection = (): FeatureCollection => ({
+  type: "FeatureCollection",
+  features: [],
+});
 
-/**
- * Arcs, destination dots and origin markers.
- *
- * Everything (except the hover highlight, see below) renders through a
- * single L.canvas(). Three origins of ~200 destinations at 48 vertices each
- * is on the order of 30,000 path vertices; the default SVG renderer would
- * make a DOM node per path and stutter on pan.
- */
-export function createReachLayer(map: L.Map) {
-  // Padding extends the canvas beyond the viewport so panning doesn't
-  // reveal unpainted edges before Leaflet redraws. Leaflet clips the map
-  // itself and the sidebar is a higher root stacking context, so the
-  // overhang stays behind the panel. 0.25 buys smoother panning at the cost
-  // of a bigger off-viewport canvas.
-  const renderer = L.canvas({ padding: 0.25 });
-  const group = L.layerGroup().addTo(map);
+function source(map: MapLibreMap, id: string): GeoJSONSource {
+  return map.getSource(id) as GeoJSONSource;
+}
 
-  // Hover highlighting draws through a separate renderer/group so it never
-  // touches the base canvas. Leaflet's canvas renderer has no partial
-  // invalidation: any setStyle/setRadius/bringToFront on a canvas-rendered
-  // path clears and repaints the *entire* canvas it belongs to, which with
-  // ~30,000 base vertices made hovering down the destination list flash the
-  // whole map.
-  //
-  // Keep the fixed pool in SVG. Even when a canvas contains only a handful
-  // of paths, Leaflet clears and repaints the renderer's *entire bitmap* for
-  // every setLatLngs/setStyle call. On a 2x display with 0.25 padding that
-  // second bitmap can be roughly 25 MB at a 960x720 map viewport. Chromium
-  // has to raster and composite it on every row hover, which is precisely
-  // the page-wide flash seen in Brave; the extra full-size layer also makes
-  // continuous pinch zoom needlessly expensive.
-  //
-  // SVG updates only the pooled paths' small `d`/style attributes. The pool
-  // is bounded to HIGHLIGHT_POOL_SIZE + 1 elements, so its DOM/style cost is
-  // tiny and, because the elements are never added or removed on hover,
-  // deterministic. It's added after `group` so it stacks above the base
-  // route canvas.
-  const highlightRenderer = L.svg({ padding: 0.1 });
-  const highlightGroup = L.layerGroup().addTo(map);
-
-  // Fixed pool of highlight layers, created once and reused for the
-  // lifetime of this reach layer. highlight() only ever calls
-  // setLatLngs/setStyle/setLatLng on these — never addTo/removeLayer/
-  // clearLayers/new L.polyline(...), so hovering never churns layers.
-  const highlightPool: L.Polyline[] = [];
-  for (let i = 0; i < HIGHLIGHT_POOL_SIZE; i++) {
-    highlightPool.push(
-      L.polyline([], {
-        renderer: highlightRenderer,
-        ...ARC_HIGHLIGHT_STYLE,
-        interactive: false,
-      }).addTo(highlightGroup),
-    );
+/** GPU-rendered route, airport, highlight and tooltip layers. */
+export function createReachLayer(map: MapLibreMap) {
+  for (const id of [
+    ROUTES_SOURCE,
+    DESTINATIONS_SOURCE,
+    ORIGINS_SOURCE,
+    HIGHLIGHT_SOURCE,
+  ]) {
+    map.addSource(id, { type: "geojson", data: emptyCollection() });
   }
-  // Track each pooled polyline's last-applied colour so highlight() can
-  // skip redundant setStyle calls (a no-op setStyle is itself a repaint of
-  // the highlight canvas).
-  const highlightPoolColor: (string | null)[] = new Array(HIGHLIGHT_POOL_SIZE).fill(null);
-  // CircleMarker has no "empty latlngs" equivalent to hide it, so it starts
-  // (and is hidden again) with radius 0 — setRadius, like setLatLngs([]) on
-  // a polyline, hides it without detaching it from the map.
-  const highlightMarker = L.circleMarker([0, 0], {
-    renderer: highlightRenderer,
-    radius: 0,
-    fillOpacity: 1,
-    weight: 0,
-    interactive: false,
-  }).addTo(highlightGroup);
-  let highlightMarkerColor: string | null = null;
-  let highlightMarkerVisible = false;
 
-  // Per-destination lookups rebuilt on every update(), since clearLayers()
-  // destroys the Leaflet objects they point to.
-  // - dotByAirport: base dot markers, used only to wire up hover events.
-  // - highlightData: plain coordinate/colour data (not Leaflet objects) used
-  //   by highlight() to reposition the pooled highlight layers, so the base
-  //   group's polylines/markers are never mutated after creation.
-  let dotByAirport = new Map<number, L.CircleMarker>();
-  let highlightData = new Map<number, HighlightData>();
-  let highlighted: number | null = null;
-  let scheduled: number | null | undefined;
-  let rafId: number | null = null;
+  // CARTO interleaves one early label layer with roads and borders, so using
+  // the first symbol as the insertion point puts flights underneath country
+  // outlines. Insert after the final non-symbol layer instead: routes and dots
+  // stay above all basemap geometry and below CARTO's main label stack.
+  const styleLayers = map.getStyle().layers;
+  let lastGeometry = -1;
+  for (let i = styleLayers.length - 1; i >= 0; i--) {
+    if (styleLayers[i]?.type !== "symbol") {
+      lastGeometry = i;
+      break;
+    }
+  }
+  const firstMainLabel = styleLayers[lastGeometry + 1]?.id;
+
+  map.addLayer({
+    id: ROUTES_LAYER,
+    type: "line",
+    source: ROUTES_SOURCE,
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 1.1,
+      "line-opacity": 0.55,
+    },
+    layout: { "line-cap": "round", "line-join": "round" },
+  }, firstMainLabel);
+
+  map.addLayer({
+    id: HIGHLIGHT_ROUTES_LAYER,
+    type: "line",
+    source: HIGHLIGHT_SOURCE,
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 2.8,
+      "line-opacity": 1,
+    },
+    layout: { "line-cap": "round", "line-join": "round" },
+  }, firstMainLabel);
+
+  map.addLayer({
+    id: DESTINATIONS_LAYER,
+    type: "circle",
+    source: DESTINATIONS_SOURCE,
+    paint: {
+      "circle-radius": 3,
+      "circle-color": ["get", "color"],
+    },
+  }, firstMainLabel);
+
+  map.addLayer({
+    id: HIGHLIGHT_DOT_LAYER,
+    type: "circle",
+    source: HIGHLIGHT_SOURCE,
+    paint: {
+      "circle-radius": 5.5,
+      "circle-color": ["get", "color"],
+    },
+  }, firstMainLabel);
+
+  map.addLayer({
+    id: ORIGIN_RING_LAYER,
+    type: "circle",
+    source: ORIGINS_SOURCE,
+    paint: {
+      "circle-radius": 9,
+      "circle-color": "rgba(0,0,0,0)",
+      "circle-stroke-color": ["get", "color"],
+      "circle-stroke-width": 1.4,
+      "circle-stroke-opacity": 0.6,
+    },
+  }, firstMainLabel);
+
+  map.addLayer({
+    id: ORIGINS_LAYER,
+    type: "circle",
+    source: ORIGINS_SOURCE,
+    paint: {
+      "circle-radius": 5,
+      "circle-color": ["get", "color"],
+    },
+  }, firstMainLabel);
+
+  let highlightByAirport = new Map<number, Feature[]>();
+  let popupData = new Map<number, { destination: Airport; legs: OriginLeg[] }>();
+
+  const popup = new Popup({
+    closeButton: false,
+    closeOnClick: false,
+    focusAfterOpen: false,
+    offset: 9,
+  });
+
+  const showDestination = (event: MapLayerMouseEvent) => {
+    const index = Number(event.features?.[0]?.properties?.airport);
+    const data = popupData.get(index);
+    if (!data) return;
+
+    const content = document.createElement("div");
+    for (const line of tooltipLines(data.destination, data.legs)) {
+      const row = document.createElement("div");
+      row.textContent = line;
+      content.appendChild(row);
+    }
+
+    map.getCanvas().style.cursor = "pointer";
+    void source(map, HIGHLIGHT_SOURCE).setData({
+      type: "FeatureCollection",
+      features: highlightByAirport.get(index) ?? [],
+    });
+    popup
+      .setLngLat([data.destination.lon, data.destination.lat])
+      .setDOMContent(content)
+      .addTo(map);
+  };
+
+  const hideDestination = () => {
+    map.getCanvas().style.cursor = "";
+    popup.remove();
+    void source(map, HIGHLIGHT_SOURCE).setData(emptyCollection());
+  };
+
+  map.on("mouseenter", DESTINATIONS_LAYER, showDestination);
+  map.on("mouseleave", DESTINATIONS_LAYER, hideDestination);
 
   function update(layers: OriginLayer[], airports: Airport[]): void {
-    group.clearLayers();
-    // The highlight pool is never rebuilt — only the base `group` is
-    // destroyed and recreated here. Reset the pool to its hidden state so
-    // update() (e.g. from a slider change) doesn't leave a stale highlight
-    // drawn for a destination that may no longer exist.
-    hideHighlightPool();
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-    scheduled = undefined;
-    dotByAirport = new Map();
-    highlightData = new Map();
-    highlighted = null;
+    const routeFeatures: Feature[] = [];
+    const destinationFeatures: Feature[] = [];
+    const originFeatures: Feature[] = [];
+    const nextHighlights = new Map<number, Feature[]>();
 
-    // Arcs first, so dots and markers sit on top.
     for (const layer of layers) {
-      for (const d of layer.destinations) {
-        const dest = airports[d.airport];
-        if (!dest) continue;
-        const entry = highlightData.get(d.airport) ?? { arcs: [], lat: dest.lat, lon: dest.lon };
-        // arcSegments interpolates along the great circle and splits at the
-        // antimeridian. Leaflet draws straight lines between vertices, so this
-        // step is what makes an arc an arc.
-        for (const seg of arcSegments(layer.origin, dest, ARC_STEPS)) {
-          const latlngs = seg.map((p) => [p.lat, p.lon] as [number, number]);
-          L.polyline(latlngs, {
-            renderer,
-            color: layer.color,
-            ...ARC_BASE_STYLE,
-            interactive: false,
-          }).addTo(group);
-          entry.arcs.push({ latlngs, color: layer.color });
+      originFeatures.push({
+        type: "Feature",
+        properties: { color: layer.color },
+        geometry: {
+          type: "Point",
+          coordinates: [layer.origin.lon, layer.origin.lat],
+        },
+      });
+
+      for (const destination of layer.destinations) {
+        const airport = airports[destination.airport];
+        if (!airport) continue;
+        const highlights = nextHighlights.get(destination.airport) ?? [];
+
+        for (const segment of arcSegments(layer.origin, airport, ARC_STEPS)) {
+          const feature: Feature = {
+            type: "Feature",
+            properties: { color: layer.color, airport: destination.airport },
+            geometry: {
+              type: "LineString",
+              coordinates: segment.map((point) => [point.lon, point.lat]),
+            },
+          };
+          routeFeatures.push(feature);
+          highlights.push(feature);
         }
-        highlightData.set(d.airport, entry);
+        nextHighlights.set(destination.airport, highlights);
       }
     }
 
-    // One dot per destination, carrying every origin that reaches it.
-    // Colour is captured here, from the first origin that reaches each
-    // destination (matching its arcs), so update() doesn't need to re-scan
-    // `layers` per destination below.
     const legsByAirport = new Map<number, OriginLeg[]>();
     const colorByAirport = new Map<number, string>();
     for (const layer of layers) {
-      for (const d of layer.destinations) {
-        const legs = legsByAirport.get(d.airport) ?? [];
-        legs.push({ iata: layer.origin.iata, minutes: d.minutes });
-        legsByAirport.set(d.airport, legs);
-        if (!colorByAirport.has(d.airport)) colorByAirport.set(d.airport, layer.color);
+      for (const destination of layer.destinations) {
+        const legs = legsByAirport.get(destination.airport) ?? [];
+        legs.push({ iata: layer.origin.iata, minutes: destination.minutes });
+        legsByAirport.set(destination.airport, legs);
+        if (!colorByAirport.has(destination.airport)) {
+          colorByAirport.set(destination.airport, layer.color);
+        }
       }
     }
 
+    const nextPopupData = new Map<number, { destination: Airport; legs: OriginLeg[] }>();
     for (const [index, legs] of legsByAirport) {
-      const dest = airports[index];
-      if (!dest) continue;
+      const destination = airports[index];
+      if (!destination) continue;
       const color = colorByAirport.get(index) ?? "#111";
-      const marker = L.circleMarker([dest.lat, dest.lon], {
-        renderer,
-        radius: DOT_BASE_RADIUS,
-        color,
-        fillColor: color,
-        fillOpacity: 1,
-        weight: 0,
-      }).addTo(group);
-      dotByAirport.set(index, marker);
-      marker.on("mouseover", () => highlight(index));
-      marker.on("mouseout", () => highlight(null));
-
-      const content = document.createElement("div");
-      for (const line of tooltipLines(dest, legs)) {
-        const row = document.createElement("div");
-        row.textContent = line;
-        content.appendChild(row);
-      }
-      marker.bindTooltip(content, { direction: "top", opacity: 1 });
+      const point: Feature = {
+        type: "Feature",
+        id: index,
+        properties: { airport: index, color },
+        geometry: {
+          type: "Point",
+          coordinates: [destination.lon, destination.lat],
+        },
+      };
+      destinationFeatures.push(point);
+      const highlights = nextHighlights.get(index) ?? [];
+      highlights.push(point);
+      nextHighlights.set(index, highlights);
+      nextPopupData.set(index, { destination, legs });
     }
 
-    for (const layer of layers) {
-      L.circleMarker([layer.origin.lat, layer.origin.lon], {
-        renderer,
-        radius: 5,
-        color: layer.color,
-        fillColor: layer.color,
-        fillOpacity: 1,
-        weight: 0,
-      }).addTo(group);
-      L.circleMarker([layer.origin.lat, layer.origin.lon], {
-        renderer,
-        radius: 9,
-        color: layer.color,
-        fill: false,
-        weight: 1.4,
-        opacity: 0.6,
-        interactive: false,
-      }).addTo(group);
-    }
-  }
+    highlightByAirport = nextHighlights;
+    popupData = nextPopupData;
+    hideDestination();
 
-  /** Hide every pooled highlight layer without detaching it from the map:
-   *  setLatLngs([]) renders nothing but keeps the polyline attached, and
-   *  setRadius(0) does the same for the marker. Never removes/creates
-   *  layers. */
-  function hideHighlightPool(): void {
-    for (const p of highlightPool) p.setLatLngs([]);
-    if (highlightMarkerVisible) {
-      highlightMarker.setRadius(0);
-      highlightMarkerVisible = false;
-    }
-  }
-
-  /** Reposition the highlight pool for one destination airport (or hide it,
-   *  for null). Only ever mutates the fixed `highlightPool`/`highlightMarker`
-   *  — never adds, removes, or constructs a layer, and never clears the
-   *  highlight group. The base group's paths are untouched either way. */
-  function drawHighlight(airport: number | null): void {
-    highlighted = airport;
-    if (airport === null) {
-      hideHighlightPool();
-      return;
-    }
-
-    const data = highlightData.get(airport);
-    if (!data) {
-      hideHighlightPool();
-      return;
-    }
-
-    // data.arcs.length is bounded by HIGHLIGHT_POOL_SIZE (see its
-    // derivation above), so every arc gets a pool slot.
-    let i = 0;
-    for (; i < data.arcs.length; i++) {
-      const arc = data.arcs[i]!;
-      const poly = highlightPool[i]!;
-      poly.setLatLngs(arc.latlngs);
-      if (highlightPoolColor[i] !== arc.color) {
-        poly.setStyle({ color: arc.color });
-        highlightPoolColor[i] = arc.color;
-      }
-    }
-    // Hide any pool members left over from a previous, larger highlight.
-    for (; i < highlightPool.length; i++) highlightPool[i]!.setLatLngs([]);
-
-    const color = data.arcs[0]?.color ?? "#111";
-    highlightMarker.setLatLng([data.lat, data.lon]);
-    if (!highlightMarkerVisible) {
-      highlightMarker.setRadius(DOT_HIGHLIGHT_RADIUS);
-      highlightMarkerVisible = true;
-    }
-    if (highlightMarkerColor !== color) {
-      highlightMarker.setStyle({ color, fillColor: color });
-      highlightMarkerColor = color;
-    }
-  }
-
-  /** Highlight all arcs and the dot for one destination airport, restoring
-   *  whatever was previously highlighted first. Safe to call with an index
-   *  that isn't currently drawn (e.g. after the slider drops it out of
-   *  range) — it's just a no-op for that side.
-   *
-   *  Calls are coalesced with requestAnimationFrame: a fast cursor sweep
-   *  across many rows fires many mouseenter/mouseover events, but only the
-   *  latest one wins per animation frame, so a sweep costs one redraw per
-   *  frame rather than one per event. */
-  function highlight(airport: number | null): void {
-    if (rafId === null && airport === highlighted) return;
-
-    scheduled = airport;
-    if (rafId !== null) return;
-
-    rafId = requestAnimationFrame(() => {
-      rafId = null;
-      const next = scheduled;
-      scheduled = undefined;
-      if (next !== undefined && next !== highlighted) drawHighlight(next);
+    void source(map, ROUTES_SOURCE).setData({
+      type: "FeatureCollection",
+      features: routeFeatures,
+    });
+    void source(map, DESTINATIONS_SOURCE).setData({
+      type: "FeatureCollection",
+      features: destinationFeatures,
+    });
+    void source(map, ORIGINS_SOURCE).setData({
+      type: "FeatureCollection",
+      features: originFeatures,
     });
   }
 
   return {
     update,
-    highlight,
     remove() {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
+      map.off("mouseenter", DESTINATIONS_LAYER, showDestination);
+      map.off("mouseleave", DESTINATIONS_LAYER, hideDestination);
+      popup.remove();
+      for (const id of [
+        ORIGINS_LAYER,
+        ORIGIN_RING_LAYER,
+        HIGHLIGHT_DOT_LAYER,
+        DESTINATIONS_LAYER,
+        HIGHLIGHT_ROUTES_LAYER,
+        ROUTES_LAYER,
+      ]) {
+        if (map.getLayer(id)) map.removeLayer(id);
       }
-      highlightGroup.remove();
-      group.remove();
+      for (const id of [
+        HIGHLIGHT_SOURCE,
+        ORIGINS_SOURCE,
+        DESTINATIONS_SOURCE,
+        ROUTES_SOURCE,
+      ]) {
+        if (map.getSource(id)) map.removeSource(id);
+      }
     },
   };
 }

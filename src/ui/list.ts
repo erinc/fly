@@ -11,7 +11,7 @@ export type ListGroup = {
 
 const PANEL_ID = "list-tabpanel";
 
-export function createList(opts: { onHover: (airport: number | null) => void }) {
+export function createList() {
   const el = document.createElement("div");
   el.className = "list";
 
@@ -24,9 +24,8 @@ export function createList(opts: { onHover: (airport: number | null) => void }) 
   function destinationRow(r: Reachable, airports: Airport[]) {
     const ap = airports[r.airport];
     if (!ap) return null;
-    const row = document.createElement("button");
+    const row = document.createElement("div");
     row.className = "row";
-    row.type = "button";
 
     const left = document.createElement("span");
     left.append(document.createTextNode(`${ap.city || ap.name} `));
@@ -51,8 +50,6 @@ export function createList(opts: { onHover: (airport: number | null) => void }) 
     right.textContent = formatDuration(r.minutes);
 
     row.append(left, right);
-    row.addEventListener("mouseenter", () => opts.onHover(r.airport));
-    row.addEventListener("mouseleave", () => opts.onHover(null));
     return row;
   }
 
@@ -64,7 +61,9 @@ export function createList(opts: { onHover: (airport: number | null) => void }) 
       panel.appendChild(empty);
       return;
     }
-    for (const r of group.destinations) {
+    for (let i = group.destinations.length - 1; i >= 0; i--) {
+      const r = group.destinations[i];
+      if (!r) continue;
       const row = destinationRow(r, airports);
       if (row) panel.appendChild(row);
     }

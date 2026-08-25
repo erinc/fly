@@ -6,8 +6,8 @@ export type Point = { lat: number; lon: number };
  * Longitudes are circular, so a cluster straddling +/-180 looks like it spans
  * almost the whole globe. Find the largest empty gap between consecutive
  * longitudes and treat the point just after it as the cluster's start, then
- * unwrap every longitude forward from there. The result may exceed +180, which
- * Leaflet accepts and normalises.
+ * unwrap every longitude forward from there. The result may exceed +180;
+ * MapLibre accepts wrapped longitudes when fitting bounds.
  */
 export function unwrappedBounds(
   points: Point[],

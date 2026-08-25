@@ -1,8 +1,5 @@
 :root {
-  /* Colours mirror the map's fill/border and the origin palette in
-     src/theme.ts — those modules are the source of truth; CSS cannot
-     import TypeScript, so the values are duplicated here and must be
-     kept in sync. */
+  /* The origin palette lives in src/theme.ts. */
   --ocean: #dceaf2;
   --land: #f2f0eb;
   --border: #b3ada2;
@@ -19,72 +16,41 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 
 #app { display: flex; height: 100dvh; }
 .load-error { margin: auto; padding: 24px; font-size: 14px; color: var(--muted); text-align: center; }
-/* z-index: 0 makes this positioned element establish its own stacking
-   context, so Leaflet's internal z-indexes (panes at 400-650, zoom
-   controls at 1000) are contained within it instead of competing in the
-   root stacking context against .panel's z-index: 10 below. Without this,
-   Leaflet's layers outrank the mobile sheet regardless of DOM order. */
-/* contain: paint guarantees this element clips its descendants to its own
-   box regardless of browser compositing/layerisation decisions. Leaflet's
-   canvas renderer is created with padding (see L.canvas({ padding }) in
-   src/map/layers.ts), so the canvas is deliberately larger than the
-   viewport and can overhang .map's box, including over the sidebar. Relying
-   on overflow: hidden alone is not enough: once the canvas is promoted to
-   its own compositing layer (more likely because .map is a stacking
-   context via z-index: 0 below), overflow clipping can stop applying and
-   the canvas paints over the panel.
-
-   The panel defends itself instead: it is positioned with z-index 20, so it
-   always paints above this element's z-index 0. `contain: paint` was tried
-   here as an extra guarantee and REMOVED — in Chromium-based browsers
-   (reported in Brave) containing a composited canvas this way caused constant
-   re-rasterisation and visible page-wide flicker. Leaflet's own
-   `.leaflet-container { overflow: hidden }` still clips the canvas. */
-.map { position: relative; flex: 1; min-width: 0; z-index: 0; }
-
-/* Sea. Leaflet draws the land GeoJSON over this. Leaflet adds
-   "leaflet-container" to the same element passed to L.map(), not a child,
-   so this must be a compound selector rather than a descendant one. */
-.map.leaflet-container {
+.map {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.map.maplibregl-map {
   background: var(--ocean);
   height: 100%;
   width: 100%;
   font: inherit;
 }
-
-/* Leaflet gotchas, learned the hard way (twice now):
-   1. Never set `transform` on a Leaflet marker-icon class. Leaflet writes
-      an inline `transform: translate3d(...)` on the icon element itself
-      (Marker._setPos) to position it, and inline style always beats a
-      class rule — a transform declared here is simply dead.
-   2. Never size or position Leaflet's internal canvas/svg renderer or pane
-      elements from app CSS. Leaflet manages those panes' geometry itself;
-      app CSS should only style content Leaflet doesn't touch, like the
-      child element below. */
-.country-label {
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  text-shadow: 0 0 2px var(--ocean), 0 0 2px var(--ocean);
+.maplibregl-ctrl-group {
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 5px rgba(20, 30, 45, .14);
 }
-.country-label > span {
-  position: absolute;
-  display: block;
-  transform: translate(-50%, -50%);
+.maplibregl-popup-content {
+  border-radius: 7px;
+  box-shadow: 0 3px 14px rgba(20, 30, 45, .18);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 10px;
 }
+.maplibregl-ctrl-attrib { font-size: 10px; }
 
-/* position: relative + z-index: 20 makes .panel a positioned element that
-   paints above .map (z-index: 0, its own stacking context) in the root
-   stacking context. Even if a descendant of .map escaped Leaflet's own
-   overflow clip, the sidebar would still win the paint order. */
 .panel {
   width: 320px; flex: 0 0 320px; background: var(--panel);
   border-right: 1px solid var(--hairline); padding: 18px 16px;
   overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: none;
   position: relative; z-index: 20;
 }
+.panel::-webkit-scrollbar { display: none; }
 .panel .grab { display: none; }
 
 .brand { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 12px; }
@@ -122,8 +88,7 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .tab:hover:not(.active) { background: #ece9e3; }
 .row { display: flex; justify-content: space-between; gap: 10px; width: 100%;
   padding: 7px 4px; border: 0; border-bottom: 1px solid #efedea; background: none;
-  font: inherit; font-size: 13px; text-align: left; cursor: pointer; color: inherit; }
-.row:hover { background: #faf9f7; }
+  font: inherit; font-size: 13px; text-align: left; color: inherit; }
 .row em { color: var(--muted); font-style: normal; font-size: 11px; }
 .row .mut, .empty { color: var(--muted); }
 .tag { font-style: normal; font-size: 10px; color: var(--muted);
@@ -141,13 +106,6 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
     box-shadow: 0 -6px 22px rgba(20,30,45,.16);
     padding: 8px 16px 20px; max-height: 82dvh;
     transition: height .22s ease;
-    /* .panel becomes position:fixed here, and .map has its own stacking
-       context (see the z-index: 0 on .map above — required so Leaflet's
-       internal z-indexes, up to 1000 for zoom controls, stay contained
-       inside .map instead of leaking into the root stacking context).
-       The base .panel rule already sets z-index: 20 to paint above .map;
-       this override just needs to be at least that high so the mobile
-       sheet isn't accidentally lowered below the map. */
     z-index: 20;
   }
   .panel.snap-low { height: 42dvh; }

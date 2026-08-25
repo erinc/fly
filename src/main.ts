@@ -5,8 +5,6 @@ import { reachable, type Reachable } from "./reach/query.js";
 import { createMap } from "./map/map.js";
 import { createReachLayer, type OriginLayer } from "./map/layers.js";
 import { unwrappedBounds } from "./map/bounds.js";
-import { type CountryLabel } from "./render/labels.js";
-import { createLabelLayer } from "./map/labelLayer.js";
 import { createAirportSelector } from "./ui/selector.js";
 import { createSlider } from "./ui/slider.js";
 import { createToggle } from "./ui/toggle.js";
@@ -26,14 +24,8 @@ function renderLoadError() {
 }
 
 let dataset: Awaited<ReturnType<typeof loadDataset>>;
-let world: GeoJSON.FeatureCollection;
-let labels: CountryLabel[];
 try {
-  [dataset, world, labels] = await Promise.all([
-    loadDataset(),
-    fetch("/world.json").then((r) => r.json()) as Promise<GeoJSON.FeatureCollection>,
-    fetch("/labels.json").then((r) => r.json()) as Promise<CountryLabel[]>,
-  ]);
+  dataset = await loadDataset();
 } catch (err) {
   renderLoadError();
   throw err;
@@ -76,15 +68,7 @@ const toggle = createToggle({
   onChange: (yearRoundOnly) => { state = { ...state, yearRoundOnly }; commit({ refocus: false }); },
 });
 
-// reachLayer is created after mapEl is attached to the DOM (Leaflet needs a
-// sized container), which is after the panel — and list.el — are built. The
-// list's hover callback closes over it and is only ever invoked once it's
-// assigned below.
-let reachLayer: ReturnType<typeof createReachLayer>;
-
-const list = createList({
-  onHover: (airport) => reachLayer.highlight(airport),
-});
+const list = createList();
 
 const footer = document.createElement("div");
 footer.className = "footer";
@@ -93,9 +77,14 @@ footer.textContent = "Route data from Wikipedia (CC BY-SA 4.0) · Airports from 
 const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el, footer]);
 app.replaceChildren(panel, mapEl);
 
-const map = createMap(mapEl, world);
-reachLayer = createReachLayer(map);
-createLabelLayer(map, labels);
+let map: Awaited<ReturnType<typeof createMap>>;
+try {
+  map = await createMap(mapEl);
+} catch (err) {
+  renderLoadError();
+  throw err;
+}
+const reachLayer = createReachLayer(map);
 
 function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
   const opts = { yearRoundOnly: state.yearRoundOnly };
@@ -136,7 +125,15 @@ function refocus(): void {
     }),
   ]);
   const b = unwrappedBounds(pts);
-  if (b) map.fitBounds(b, { padding: [40, 40], maxZoom: 6 });
+  if (b) {
+    map.fitBounds(
+      [
+        [b[0][1], b[0][0]],
+        [b[1][1], b[1][0]],
+      ],
+      { padding: 40, maxZoom: 6, duration: 450 },
+    );
+  }
 }
 
 function pushUrl(): void {
