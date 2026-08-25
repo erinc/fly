@@ -1,0 +1,127 @@
+{{Short description|Airport in Alaska, United States}}
+{{Use American English|date=May 2025}}
+{{Infobox airport
+| name            = Eek Airport
+| image           = EEK-b.jpg
+| image_size      = 250
+| IATA            = EEK
+| ICAO            = PAEE
+| FAA             = EEK
+| type            = Public
+| owner           = State of Alaska DOT&PF - Central Region
+| operator        = 
+| area_served     = [[Eek, Alaska]]
+| location        = 
+| elevation_f     = 15
+| elevation_m     = 5
+| coordinates     = {{coord|60|12|49|N|162|02|38|W|region:US-AK_type:airport}}
+| website         = 
+| pushpin_map     = USA Alaska
+| pushpin_relief  = 
+| pushpin_caption = Location of airport in Alaska
+| pushpin_label   = '''EEK'''
+| r1_number       = 17/35
+| r1_length_f     = 3,242
+| r1_length_m     = 
+| r1_surface      = Gravel
+| stat_year       = 2016
+| stat1_header    = Aircraft operations (2012)
+| stat1_data      = 300
+| stat2_header    = Based aircraft (2017)
+| stat2_data      = 0
+| stat3_header    = Passengers
+| stat3_data      = 6,461
+| stat4_header    = Freight
+| stat4_data      = 820,000 lbs
+| footnotes       = Source: [[Federal Aviation Administration]]<ref name=FAA-master-record>{{FAA-airport|ID=EEK|access-date=May 6, 2017}}</ref><ref name=FAA-2007-enplanements>[http://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/passenger/ Preliminary CY 2007 Passenger Boarding Data]. Federal Aviation Administration. April 27, 2017.</ref><br>
+Source: [[Bureau of Transportation]]<ref name="transtats.bts.gov"></ref>
+}}
+
+'''Eek Airport''' {{airport codes|EEK<ref>[http://gc.kls2.com/airport/EEK EEK - Eek, Alaska]. Great Circle Mapper. Retrieved 2008-09-17.</ref>|PAEE<ref>{{SkyVector|PAEE}}. Retrieved 2008-09-17.</ref>|EEK}} is a state-owned public-use [[airport]] serving the city of [[Eek, Alaska|Eek]] in the [[Bethel Census Area, Alaska|Bethel Census Area]] of the [[U.S. state]] of [[Alaska]].<ref name=FAA-master-record />
+
+As per [[Federal Aviation Administration]] records, this airport had 3,759 passenger boardings (enplanements) in [[calendar year]] 2007, an increase of 16% from the 3,241 enplanements in 2006.<ref name=FAA-2007-enplanements />
+
+== Facilities ==
+Eek Airport has one [[runway]] designated 17/35 with a 3,243 x 60&nbsp;ft (988 x 18 m) [[gravel]] surface.<ref name=FAA-master-record />
+
+A federally funded project relocated the airport to a new location about two miles west of Eek.<ref>[http://notes5.state.ak.us/pn/pubnotic.nsf/53a2e6f2d0aafc648925672a00602f03/4796b0b55d33a94f89256bf10080aba2?OpenDocument Eek Airport Relocation, Stage 2] {{Webarchive|url=https://archive.today/20120713154336/http://notes5.state.ak.us/pn/pubnotic.nsf/53a2e6f2d0aafc648925672a00602f03/4796b0b55d33a94f89256bf10080aba2?OpenDocument |date=2012-07-13 }}. ''Online Public Notice''. State of Alaska. 2002-07-10.</ref><ref>[http://www.osborne.cc/past_civil.html Completed Projects: Eek Airport Relocation] {{Webarchive|url=https://web.archive.org/web/20110706215620/http://www.osborne.cc/past_civil.html |date=2011-07-06 }}. Osborne Construction Company. Retrieved 2008-09-17.</ref> The former airport had a 1,400 by 35&nbsp;ft runway and was located east of Eek at coordinates {{coord|60|12.95|N|162|00.35|W|region:US_type:airport}}.<ref>[https://web.archive.org/web/20050119184641/http://www.alaska.faa.gov/fai/images/ARPT_DIAGRAMS/EEK.gif Airport diagram] ([[GIF]]). Federal Aviation Administration, Alaskan Region. 2003-12-25.</ref>
+
+==Airlines and destinations==
+<!-- Please use only independent sources. The airport and airlines itself are not independent sources. -->
+{{Update section|date=January 2022}}
+{{Airport-dest-list
+| [[Grant Aviation]] | [[Bethel Airport|Bethel]], [[Quinhagak Airport|Quinhagak]]<ref>{{cite web|url=https://www.Flygrant.com|title=Grant Aviation Schedule}} (retrieved Sep 11, 2022)</ref>
+| [[Yute Commuter Service]] |  [[Bethel Airport|Bethel]], [[Quinhagak Airport|Quinhagak]]<ref>{{cite web |url=https://yutebethel.com/bet-schedule |title=Yute Schedule |access-date=2022-09-15 |archive-date=2022-09-12 |archive-url=https://web.archive.org/web/20220912040734/https://yutebethel.com/bet-schedule |url-status=dead }} (retrieved Sep 15, 2022)</ref>
+}}
+
+===Statistics===
+{{Bar graph
+| title = Carrier shares: January – December 2016<ref name ="transtats.bts.gov"></ref>
+
+| bar_width   = 28
+| width_units = em
+| label_type  = Carrier&nbsp;&nbsp;
+| data_type   = Passengers (arriving and departing)
+| data_max    = 6,461
+| label1      = [[Hageland Aviation|Hageland]]
+| data1       = 3,520
+| comment1    = 54.50%
+| label2      = [[Yute Air|Yute]]
+| data2       = 2,760
+| comment2    = 42.67%
+| label3      = [[Grant Aviation|Grant]]
+| data3       = 180
+| comment3    = 2.77%
+}}
+
+{| class="wikitable"
+|+ Top domestic destinations: January – December 2016<ref name="transtats.bts.gov">
+  {{cite web
+  | url = https://www.transtats.bts.gov/airports.asp?pn=1&Airport=EEK&Airport_Name=Eek,%20AK:%20Eek%20Airport&carrier=FACTS
+  | title = Eek, AK: Eek (EEK)
+  | publisher = [[Bureau of Transportation Statistics]] (BTS), [[Research and Innovative Technology Administration]] (RITA), [[U.S. Department of Transportation]]
+  | date = December 2016 | access-date = May 6, 2017
+ }}
+</ref>
+
+! Rank
+! City
+! Airport
+! Passengers
+! Carriers
+|-
+| 1
+| {{flagicon|Alaska}} [[Bethel, AK]]
+| [[Bethel Airport]]
+| align=right | 2,440
+| Yute, Grant, Hageland
+|-
+| 2
+| {{flagicon|Alaska}} [[Quinhagak, AK]]
+| [[Quinhagak Airport]]
+| align=right | 630
+| Grant, Hageland
+|-
+| 3
+| {{flagicon|Alaska}} [[Tuntutuliak, AK]]
+| [[Tuntutuliak Airport]]
+| align=right | 70
+| Grant
+|}
+
+==See also==
+* [[List of airports in Alaska]]
+
+== References ==
+{{reflist}}
+
+== External links ==
+* Resources for this airport:
+** {{AirNav|PAEE}}
+** [https://web.archive.org/web/20121018154824/http://aviation-safety.net/database/airport/airport.php?id=EEK Accident history for EEK] at [[Aviation Safety Network]]
+** {{SkyVector|EEK}}
+
+{{Portal bar|Alaska|Aviation}}
+{{Airports in Alaska}}
+
+[[Category:Airports in the Bethel Census Area, Alaska]]
