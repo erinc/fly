@@ -34,11 +34,11 @@ brand.textContent = "fly.eric.fun";
 
 const pickerA = createPicker({
   airports: dataset.airports, slot: "a", color: COLORS.originA,
-  onSelect: (iata) => { state = { ...state, a: iata }; commit(); },
+  onSelect: (iata) => { state = { ...state, a: iata }; highlight = null; commit(); },
 });
 const pickerB = createPicker({
   airports: dataset.airports, slot: "b", color: COLORS.originB,
-  onSelect: (iata) => { state = { ...state, b: iata }; commit(); },
+  onSelect: (iata) => { state = { ...state, b: iata }; highlight = null; commit(); },
 });
 const slider = createSlider({
   value: state.minutes,

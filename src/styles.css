@@ -72,6 +72,11 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
     box-shadow: 0 -6px 22px rgba(20,30,45,.16);
     padding: 8px 16px 20px; max-height: 82dvh;
     transition: height .22s ease;
+    /* .panel becomes position:fixed here, so it and .map (position:relative)
+       both form stacking contexts and paint in DOM order — main.ts appends
+       the map after the panel, so without an explicit z-index the map
+       painted over the entire sheet. */
+    z-index: 10;
   }
   .panel.snap-low { height: 42dvh; }
   .panel.snap-high { height: 82dvh; }
