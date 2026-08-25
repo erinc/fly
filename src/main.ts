@@ -72,8 +72,11 @@ const toggle = createToggle({
 
 const list = createList();
 
-const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el]);
-app.replaceChildren(panel, mapEl);
+const panel = createPanel(
+  [brand, selector.el, slider.el, toggle.el, list.el],
+  { initiallyOpen: state.airports.length === 0 },
+);
+app.replaceChildren(panel.el, panel.backdrop, panel.trigger, mapEl);
 
 let map: Awaited<ReturnType<typeof createMap>>;
 try {
