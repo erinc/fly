@@ -4,12 +4,16 @@ export type CountryLabel = { name: string; lat: number; lon: number; rank: numbe
 export type ProjectPoint = (lon: number, lat: number) => [number, number] | null;
 
 /**
- * Rank threshold at zoom 1, in square degrees of polygon area. Tuned against
- * the actual generated public/labels.json: 40 excludes Italy (29.4), the
- * United Kingdom (32.5) and Japan (29.4) at default zoom, which is
- * indefensible on a world map. 25 includes them (about 70 labels at zoom 1)
- * while still deferring Greece (12.8), Portugal (9.8), Austria (10.2) and
- * the Benelux to higher zooms.
+ * Rank threshold, in square degrees of polygon area, expressed as if for
+ * zoom 1 — visibleLabels() below divides it by z*z, so the effective
+ * threshold at any zoom z is MIN_RANK / z^2. The map's actual world view is
+ * zoom 2 (minZoom: 2 in map.ts), not zoom 1, so at that starting view the
+ * effective threshold is MIN_RANK / 4, not MIN_RANK. Tuned against the
+ * actual generated public/labels.json at that real starting zoom: 40
+ * excludes Italy (29.4), the United Kingdom (32.5) and Japan (29.4), which
+ * is indefensible on a world map. 25 includes them (about 70 labels at the
+ * default view) while still deferring Greece (12.8), Portugal (9.8),
+ * Austria (10.2) and the Benelux to higher zooms.
  */
 export const MIN_RANK = 25;
 
