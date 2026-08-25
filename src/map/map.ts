@@ -12,6 +12,7 @@ setWorkerUrl(workerUrl);
 
 const CARTO_POSITRON_STYLE =
   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const OCEAN_COLOR = "#cfe8f3";
 
 /**
  * GPU-rendered map surface backed by CARTO's Positron vector basemap.
@@ -68,6 +69,20 @@ export async function createMap(container: HTMLElement): Promise<MapLibreMap> {
     // can unnecessarily hold the sidebar hostage on a slow connection.
     map.once("style.load", ready);
   });
+
+  // CARTO Positron uses neutral gray water by default. Match its actual vector
+  // source layer instead of its presentation-layer name so this remains robust
+  // if CARTO renames the layer while keeping the same tileset schema.
+  for (const layer of map.getStyle().layers) {
+    if (
+      layer.type === "fill" &&
+      "source-layer" in layer &&
+      layer["source-layer"] === "water" &&
+      layer.id !== "water_shadow"
+    ) {
+      map.setPaintProperty(layer.id, "fill-color", OCEAN_COLOR);
+    }
+  }
 
   return map;
 }

@@ -1,5 +1,5 @@
 /** Origin colours, assigned by position in the selected-airports array. */
-export const ORIGIN_COLORS = ["#d94f45", "#2b6cb0", "#2e7d4f"] as const;
+export const ORIGIN_COLORS = ["#d94f45", "#2e7d4f", "#2b6cb0"] as const;
 
 export const MAX_AIRPORTS = ORIGIN_COLORS.length;
 
