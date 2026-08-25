@@ -76,8 +76,14 @@ const toggle = createToggle({
   onChange: (yearRoundOnly) => { state = { ...state, yearRoundOnly }; commit({ refocus: false }); },
 });
 
+// reachLayer is created after mapEl is attached to the DOM (Leaflet needs a
+// sized container), which is after the panel — and list.el — are built. The
+// list's hover callback closes over it and is only ever invoked once it's
+// assigned below.
+let reachLayer: ReturnType<typeof createReachLayer>;
+
 const list = createList({
-  onHover: () => {},
+  onHover: (airport) => reachLayer.highlight(airport),
 });
 
 const footer = document.createElement("div");
@@ -88,7 +94,7 @@ const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el, fo
 app.replaceChildren(panel, mapEl);
 
 const map = createMap(mapEl, world);
-const reachLayer = createReachLayer(map);
+reachLayer = createReachLayer(map);
 createLabelLayer(map, labels);
 
 function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {

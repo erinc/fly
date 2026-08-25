@@ -13,6 +13,11 @@ export type OriginLayer = {
 
 const ARC_STEPS = 48;
 
+const ARC_BASE_STYLE = { weight: 0.9, opacity: 0.55 };
+const ARC_HIGHLIGHT_STYLE = { weight: 2.6, opacity: 1 };
+const DOT_BASE_RADIUS = 3;
+const DOT_HIGHLIGHT_RADIUS = 5.5;
+
 /**
  * Arcs, destination dots and origin markers.
  *
@@ -24,8 +29,18 @@ export function createReachLayer(map: L.Map) {
   const renderer = L.canvas({ padding: 0.3 });
   const group = L.layerGroup().addTo(map);
 
+  // Per-destination lookups rebuilt on every update(), since clearLayers()
+  // destroys the Leaflet objects they point to. Used by highlight() to
+  // restyle only the handful of paths touched by a hover, not the whole scene.
+  let arcsByAirport = new Map<number, L.Polyline[]>();
+  let dotByAirport = new Map<number, L.CircleMarker>();
+  let highlighted: number | null = null;
+
   function update(layers: OriginLayer[], airports: Airport[]): void {
     group.clearLayers();
+    arcsByAirport = new Map();
+    dotByAirport = new Map();
+    highlighted = null;
 
     // Arcs first, so dots and markers sit on top.
     for (const layer of layers) {
@@ -35,12 +50,15 @@ export function createReachLayer(map: L.Map) {
         // arcSegments interpolates along the great circle and splits at the
         // antimeridian. Leaflet draws straight lines between vertices, so this
         // step is what makes an arc an arc.
+        const arcs = arcsByAirport.get(d.airport) ?? [];
         for (const seg of arcSegments(layer.origin, dest, ARC_STEPS)) {
-          L.polyline(
+          const pl = L.polyline(
             seg.map((p) => [p.lat, p.lon] as [number, number]),
-            { renderer, color: layer.color, weight: 0.9, opacity: 0.55, interactive: false },
+            { renderer, color: layer.color, ...ARC_BASE_STYLE, interactive: false },
           ).addTo(group);
+          arcs.push(pl);
         }
+        arcsByAirport.set(d.airport, arcs);
       }
     }
 
@@ -65,12 +83,15 @@ export function createReachLayer(map: L.Map) {
       const color = colorByAirport.get(index) ?? "#111";
       const marker = L.circleMarker([dest.lat, dest.lon], {
         renderer,
-        radius: 3,
+        radius: DOT_BASE_RADIUS,
         color,
         fillColor: color,
         fillOpacity: 1,
         weight: 0,
       }).addTo(group);
+      dotByAirport.set(index, marker);
+      marker.on("mouseover", () => highlight(index));
+      marker.on("mouseout", () => highlight(null));
 
       const content = document.createElement("div");
       for (const line of tooltipLines(dest, legs)) {
@@ -102,8 +123,32 @@ export function createReachLayer(map: L.Map) {
     }
   }
 
+  /** Highlight all arcs and the dot for one destination airport, restoring
+   *  whatever was previously highlighted first. Safe to call with an index
+   *  that isn't currently drawn (e.g. after the slider drops it out of
+   *  range) — it's just a no-op for that side. */
+  function highlight(airport: number | null): void {
+    if (airport === highlighted) return;
+
+    if (highlighted !== null) {
+      for (const pl of arcsByAirport.get(highlighted) ?? []) pl.setStyle(ARC_BASE_STYLE);
+      dotByAirport.get(highlighted)?.setRadius(DOT_BASE_RADIUS);
+    }
+
+    highlighted = airport;
+
+    if (airport !== null) {
+      for (const pl of arcsByAirport.get(airport) ?? []) {
+        pl.setStyle(ARC_HIGHLIGHT_STYLE);
+        pl.bringToFront();
+      }
+      dotByAirport.get(airport)?.setRadius(DOT_HIGHLIGHT_RADIUS);
+    }
+  }
+
   return {
     update,
+    highlight,
     remove() {
       group.remove();
     },
