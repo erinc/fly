@@ -16,7 +16,6 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run crawl -- --all
-      - run: npm run basemap
       # Fails the job if coverage drops below 85% or airport/route counts
       # drift more than 5% from the last committed bundle. Intentionally not
       # passed --force-bundle: a tripped drift gate should fail loudly so a

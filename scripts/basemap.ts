@@ -1,5 +1,4 @@
 import { writeFileSync } from "node:fs";
-import { geoCentroid, geoArea } from "d3-geo";
 
 interface GeoJSONFeature {
   type: "Feature";
