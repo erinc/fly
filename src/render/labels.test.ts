@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
-import { createProjection } from "../geo/projection.js";
-import { placeLabels, visibleLabels, type CountryLabel } from "./labels.js";
+import { placeLabels, visibleLabels, type CountryLabel, type ProjectPoint } from "./labels.js";
+
+/** Simple equirectangular projection, enough to exercise collision suppression. */
+const project: ProjectPoint = (lon, lat) => [
+  ((lon + 180) / 360) * 1000,
+  ((90 - lat) / 180) * 600,
+];
 
 // rank is polygon area in square degrees, as emitted by scripts/basemap.ts
 const LABELS: CountryLabel[] = [
@@ -67,8 +72,7 @@ test("placed labels never overlap, even for a densely clustered set", () => {
     { name: "Slovenia", lat: 46.1, lon: 14.8, rank: 10 },
   ];
 
-  const projection = createProjection(1000, 600);
-  const placed = placeLabels(cluster, projection);
+  const placed = placeLabels(cluster, project);
   expect(placed.length).toBeGreaterThan(1);
 
   const boxes = placed.map((p) => boxOf(p.x, p.y, p.text));

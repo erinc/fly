@@ -1,7 +1,7 @@
-import type { GeoProjection } from "d3-geo";
-import { COLORS } from "../geo/projection.js";
-
 export type CountryLabel = { name: string; lat: number; lon: number; rank: number };
+
+/** Projects lon/lat to container pixel coordinates, or null if off-map. */
+export type ProjectPoint = (lon: number, lat: number) => [number, number] | null;
 
 /**
  * Rank threshold at zoom 1, in square degrees of polygon area. Tuned against
@@ -67,12 +67,12 @@ export type PlacedLabel = { label: CountryLabel; x: number; y: number; text: str
  */
 export function placeLabels(
   labels: CountryLabel[],
-  projection: GeoProjection,
+  project: ProjectPoint,
 ): PlacedLabel[] {
   const placed: PlacedLabel[] = [];
   const boxes: Box[] = [];
   for (const l of labels) {
-    const xy = projection([l.lon, l.lat]);
+    const xy = project(l.lon, l.lat);
     if (!xy) continue;
     const text = displayName(l.name).toUpperCase();
     const box = estimateBox(xy[0], xy[1], text);
@@ -83,25 +83,3 @@ export function placeLabels(
   return placed;
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-export function renderLabels(
-  svg: SVGSVGElement,
-  labels: CountryLabel[],
-  projection: GeoProjection,
-  zoom: number,
-): void {
-  svg.replaceChildren();
-  for (const p of placeLabels(visibleLabels(labels, zoom), projection)) {
-    const text = document.createElementNS(SVG_NS, "text");
-    text.setAttribute("x", String(p.x));
-    text.setAttribute("y", String(p.y));
-    text.setAttribute("text-anchor", "middle");
-    text.setAttribute("fill", COLORS.label);
-    text.setAttribute("font-size", String(FONT_SIZE));
-    text.setAttribute("letter-spacing", "0.8");
-    text.style.textTransform = "uppercase";
-    text.textContent = p.text;
-    svg.appendChild(text);
-  }
-}
