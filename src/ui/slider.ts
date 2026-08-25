@@ -2,7 +2,11 @@
 import { MAX_MINUTES, MIN_MINUTES, STEP_MINUTES } from "../state/url.js";
 import { formatDuration } from "./format.js";
 
-export function createSlider(opts: { value: number; onChange: (minutes: number) => void }) {
+export function createSlider(opts: {
+  value: number;
+  onInput: (minutes: number) => void;
+  onChange: (minutes: number) => void;
+}) {
   const el = document.createElement("div");
   el.className = "slider";
 
@@ -23,10 +27,16 @@ export function createSlider(opts: { value: number; onChange: (minutes: number) 
   readout.textContent = formatDuration(opts.value);
 
   // Fires on every drag frame; the reach query is sub-millisecond so no debounce.
+  // The URL is not updated here — history.replaceState on every frame can hit
+  // Safari's rate limit on a long drag and throw before the redraw runs. That
+  // happens on "change" instead, once the drag (or keyboard step) settles.
   input.addEventListener("input", () => {
     const m = Number(input.value);
     readout.textContent = formatDuration(m);
-    opts.onChange(m);
+    opts.onInput(m);
+  });
+  input.addEventListener("change", () => {
+    opts.onChange(Number(input.value));
   });
 
   el.append(label, input, readout);

@@ -19,6 +19,7 @@ html, body, #app { height: 100%; margin: 0; }
 body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 
 #app { display: flex; height: 100dvh; }
+.load-error { margin: auto; padding: 24px; font-size: 14px; color: var(--muted); text-align: center; }
 .map { position: relative; flex: 1; min-width: 0; }
 .map canvas, .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .map svg { pointer-events: none; }
@@ -49,6 +50,10 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .slider input[type="range"] { width: 100%; accent-color: var(--ink); }
 .readout { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
 
+.toggle { display: flex; align-items: center; gap: 8px; font-size: 13px;
+  margin: 8px 0 0; cursor: pointer; }
+.toggle input { accent-color: var(--ink); }
+
 .list { margin-top: 8px; }
 .row { display: flex; justify-content: space-between; gap: 10px; width: 100%;
   padding: 7px 4px; border: 0; border-bottom: 1px solid #efedea; background: none;
@@ -61,7 +66,6 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .empty { font-size: 13px; }
 
 .footer { margin-top: auto; padding-top: 16px; font-size: 10px; color: var(--muted); line-height: 1.5; }
-.footer a { color: inherit; }
 
 @media (max-width: 760px) {
   #app { flex-direction: column; }

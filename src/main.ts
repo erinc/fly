@@ -8,11 +8,36 @@ import { drawReach, type Layer } from "./render/arcs.js";
 import { renderLabels, type CountryLabel } from "./render/labels.js";
 import { createPicker } from "./ui/picker.js";
 import { createSlider } from "./ui/slider.js";
+import { createToggle } from "./ui/toggle.js";
 import { createList } from "./ui/list.js";
 import { createPanel } from "./ui/panel.js";
 import { parseState, toSearch, type AppState } from "./state/url.js";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
+
+function renderLoadError(): void {
+  app.replaceChildren();
+  const msg = document.createElement("div");
+  msg.className = "load-error";
+  msg.textContent = "Couldn't load map data. Try reloading.";
+  app.appendChild(msg);
+}
+
+let dataset: Awaited<ReturnType<typeof loadDataset>>;
+let world: GeoJSON.FeatureCollection;
+let labels: CountryLabel[];
+
+try {
+  [dataset, world, labels] = await Promise.all([
+    loadDataset(),
+    fetch("/world.json").then((r) => r.json()) as Promise<GeoJSON.FeatureCollection>,
+    fetch("/labels.json").then((r) => r.json()) as Promise<CountryLabel[]>,
+  ]);
+} catch (err) {
+  console.error("Failed to load map data", err);
+  renderLoadError();
+  throw err;
+}
 
 const mapEl = document.createElement("div");
 mapEl.className = "map";
@@ -20,13 +45,19 @@ const canvas = document.createElement("canvas");
 const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 mapEl.append(canvas, svg);
 
-const [dataset, world, labels] = await Promise.all([
-  loadDataset(),
-  fetch("/world.json").then((r) => r.json()) as Promise<GeoJSON.FeatureCollection>,
-  fetch("/labels.json").then((r) => r.json()) as Promise<CountryLabel[]>,
-]);
+/**
+ * Drops any airport code that isn't in this bundle (e.g. a stale or
+ * hand-edited URL) and, if only the second slot is occupied, swaps it into
+ * the first so single-origin queries always render as single-origin chrome.
+ */
+function normalize(s: AppState): AppState {
+  const a = s.a && dataset.index.has(s.a) ? s.a : null;
+  const b = s.b && dataset.index.has(s.b) ? s.b : null;
+  if (a === null && b !== null) return { ...s, a: b, b: null };
+  return { ...s, a, b };
+}
 
-let state: AppState = parseState(location.search);
+let state: AppState = normalize(parseState(location.search));
 
 const brand = document.createElement("div");
 brand.className = "brand";
@@ -42,7 +73,13 @@ const pickerB = createPicker({
 });
 const slider = createSlider({
   value: state.minutes,
-  onChange: (minutes) => { state = { ...state, minutes }; commit(); },
+  onInput: (minutes) => { state = { ...state, minutes }; draw(); },
+  onChange: (minutes) => { state = { ...state, minutes }; history.replaceState(null, "", toSearch(state)); },
+});
+const yearRoundToggle = createToggle({
+  label: "Year-round only",
+  value: state.yearRoundOnly,
+  onChange: (yearRoundOnly) => { state = { ...state, yearRoundOnly }; commit(); },
 });
 const list = createList({
   onHover: (airport) => { highlight = airport; draw(); },
@@ -53,7 +90,7 @@ const footer = document.createElement("div");
 footer.className = "footer";
 footer.textContent = "Route data from Wikipedia (CC BY-SA 4.0) · Airports from OurAirports";
 
-const panel = createPanel([brand, pickerA.el, pickerB.el, slider.el, list.el, footer]);
+const panel = createPanel([brand, pickerA.el, pickerB.el, slider.el, yearRoundToggle.el, list.el, footer]);
 app.append(panel, mapEl);
 
 let highlight: number | null = null;
@@ -109,19 +146,25 @@ function draw(): void {
 }
 
 function commit(): void {
+  state = normalize(state);
+  pickerA.setValue(state.a);
+  pickerB.setValue(state.b);
+  yearRoundToggle.setValue(state.yearRoundOnly);
   history.replaceState(null, "", toSearch(state));
   draw();
 }
 
 window.addEventListener("resize", draw);
 window.addEventListener("popstate", () => {
-  state = parseState(location.search);
+  state = normalize(parseState(location.search));
   pickerA.setValue(state.a);
   pickerB.setValue(state.b);
   slider.setValue(state.minutes);
+  yearRoundToggle.setValue(state.yearRoundOnly);
   draw();
 });
 
 pickerA.setValue(state.a);
 pickerB.setValue(state.b);
+history.replaceState(null, "", toSearch(state));
 draw();
