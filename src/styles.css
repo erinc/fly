@@ -120,6 +120,8 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   padding: 7px 4px; border: 0; border-bottom: 1px solid #efedea; background: none;
   font: inherit; font-size: 13px; text-align: left; color: inherit; }
 .row em { color: var(--muted); font-style: normal; font-size: 11px; }
+.row .flag { display: inline-block; width: 1.35em; margin-right: 4px;
+  text-align: center; }
 .row .mut, .empty { color: var(--muted); }
 .row .mut { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums; }

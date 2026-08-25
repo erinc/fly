@@ -1,6 +1,7 @@
 // src/ui/list.ts
 import type { Airport } from "../data/bundle.js";
 import type { Reachable } from "../reach/query.js";
+import { countryFlag } from "./flag.js";
 import { formatDuration } from "./format.js";
 
 export type ListGroup = {
@@ -28,6 +29,13 @@ export function createList() {
     row.className = "row";
 
     const left = document.createElement("span");
+    const flag = countryFlag(ap.country);
+    if (flag) {
+      const flagEl = document.createElement("span");
+      flagEl.className = "flag";
+      flagEl.textContent = flag;
+      left.appendChild(flagEl);
+    }
     left.append(document.createTextNode(`${ap.city || ap.name} `));
     const code = document.createElement("em");
     code.textContent = ap.iata;
