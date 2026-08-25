@@ -133,7 +133,7 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   #app { display: block; }
   .map { width: 100%; height: 100%; }
   .panel {
-    position: fixed; inset: 0 auto 0 0; width: min(82vw, 320px); height: 100dvh;
+    position: fixed; inset: 0 auto 0 0; width: min(79vw, 308px); height: 100dvh;
     border-right: 1px solid var(--hairline); border-radius: 0 14px 14px 0;
     box-shadow: 8px 0 28px rgba(20,30,45,.18);
     padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
@@ -150,10 +150,10 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   .panel-trigger { display: inline-flex; position: fixed;
     top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
     align-items: center; min-height: 38px; padding: 0 13px;
-    border: 1px solid rgba(26,26,26,.12); border-radius: 20px;
-    background: rgba(255,255,255,.94); box-shadow: 0 2px 10px rgba(20,30,45,.18);
-    color: var(--ink); font: inherit; font-size: 13px; font-weight: 600;
-    cursor: pointer; z-index: 30; backdrop-filter: blur(8px); }
+    border: 1px solid rgba(26,26,26,.82); border-radius: 20px;
+    background: rgba(26,26,26,.88); box-shadow: 0 2px 7px rgba(20,30,45,.2);
+    color: #fff; font: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; z-index: 30; }
   .panel-trigger[hidden] { display: none; }
   .panel-backdrop { display: block; position: fixed; inset: 0; padding: 0;
     border: 0; background: rgba(20,30,45,.16); opacity: 0;
@@ -166,10 +166,10 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
     right: max(12px, env(safe-area-inset-right));
     bottom: max(18px, calc(env(safe-area-inset-bottom) + 18px));
     width: auto; margin: 0; padding: 8px 10px;
-    border: 1px solid rgba(26,26,26,.12); border-radius: 12px;
-    background: rgba(255,255,255,.94); box-shadow: 0 2px 10px rgba(20,30,45,.18);
+    border: 1px solid #d8d4cd; border-radius: 12px;
+    background: #fff; box-shadow: 0 2px 7px rgba(20,30,45,.16);
     grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 9px;
-    z-index: 30; backdrop-filter: blur(8px);
+    z-index: 30;
     transition: opacity .16s ease;
   }
   .mobile-map-slider .label { display: block; grid-column: auto; margin: 0;
