@@ -77,9 +77,8 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 
 /* position: relative + z-index: 20 makes .panel a positioned element that
    paints above .map (z-index: 0, its own stacking context) in the root
-   stacking context, on top of .map's own contain: paint clip. Belt and
-   braces: even if some descendant of .map ever escaped its box, the
-   sidebar still wins the paint order. */
+   stacking context. Even if a descendant of .map escaped Leaflet's own
+   overflow clip, the sidebar would still win the paint order. */
 .panel {
   width: 320px; flex: 0 0 320px; background: var(--panel);
   border-right: 1px solid var(--hairline); padding: 18px 16px;

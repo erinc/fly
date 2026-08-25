@@ -40,35 +40,35 @@ const HIGHLIGHT_POOL_SIZE = MAX_AIRPORTS * 2;
  * make a DOM node per path and stutter on pan.
  */
 export function createReachLayer(map: L.Map) {
-  // padding extends the canvas beyond the viewport so panning doesn't
-  // reveal unpainted edges before Leaflet redraws. src/styles.css's
-  // .map { contain: paint } clips the canvas to the map's box regardless,
-  // so the overhang never leaks into surrounding layout (e.g. the
-  // sidebar) — 0.25 is safe and buys smoother panning at the cost of a
-  // bigger off-viewport canvas.
+  // Padding extends the canvas beyond the viewport so panning doesn't
+  // reveal unpainted edges before Leaflet redraws. Leaflet clips the map
+  // itself and the sidebar is a higher root stacking context, so the
+  // overhang stays behind the panel. 0.25 buys smoother panning at the cost
+  // of a bigger off-viewport canvas.
   const renderer = L.canvas({ padding: 0.25 });
   const group = L.layerGroup().addTo(map);
 
-  // Hover highlighting draws into a second, separate canvas/group so it
-  // never touches the base canvas. Leaflet's canvas renderer has no partial
+  // Hover highlighting draws through a separate renderer/group so it never
+  // touches the base canvas. Leaflet's canvas renderer has no partial
   // invalidation: any setStyle/setRadius/bringToFront on a canvas-rendered
   // path clears and repaints the *entire* canvas it belongs to, which with
   // ~30,000 base vertices made hovering down the destination list flash the
   // whole map.
   //
-  // The fix isn't a different renderer per se — it's that highlight() must
-  // never create or destroy layers, only mutate a fixed pool. Once that's
-  // true, a dedicated L.canvas() is the better choice of the two:
-  //   - It touches zero DOM. L.svg() would keep persistent <path> nodes,
-  //     which is fine for churn but every setLatLngs/setStyle on them still
-  //     triggers Chromium style/layout recalc on real DOM elements, and the
-  //     browser has to manage those nodes' paint/composite layering.
-  //   - It redraws only its own canvas, which holds at most
-  //     HIGHLIGHT_POOL_SIZE + 1 tiny paths — cheap to fully repaint on the
-  //     rare occasions Leaflet does redraw it (e.g. on setStyle), and that
-  //     repaint never touches the base canvas's ~30,000 vertices.
-  // It's added after `group` so it stacks above the base canvas.
-  const highlightRenderer = L.canvas({ padding: 0.25 });
+  // Keep the fixed pool in SVG. Even when a canvas contains only a handful
+  // of paths, Leaflet clears and repaints the renderer's *entire bitmap* for
+  // every setLatLngs/setStyle call. On a 2x display with 0.25 padding that
+  // second bitmap can be roughly 25 MB at a 960x720 map viewport. Chromium
+  // has to raster and composite it on every row hover, which is precisely
+  // the page-wide flash seen in Brave; the extra full-size layer also makes
+  // continuous pinch zoom needlessly expensive.
+  //
+  // SVG updates only the pooled paths' small `d`/style attributes. The pool
+  // is bounded to HIGHLIGHT_POOL_SIZE + 1 elements, so its DOM/style cost is
+  // tiny and, because the elements are never added or removed on hover,
+  // deterministic. It's added after `group` so it stacks above the base
+  // route canvas.
+  const highlightRenderer = L.svg({ padding: 0.1 });
   const highlightGroup = L.layerGroup().addTo(map);
 
   // Fixed pool of highlight layers, created once and reused for the
