@@ -4,6 +4,7 @@ import { durationMinutes } from "../src/geo/duration.js";
 import { decodeRoutes, encodeRoutes, FLAG_CHARTER, FLAG_SEASONAL, type RouteRecord } from "../src/data/format.js";
 import { parseAirportsCsv, type AirportRow } from "./sources/ourairports.js";
 import type { Destination } from "./parse/destinations.js";
+import { resolveCityName } from "./city-name.js";
 
 const RAW = new URL("../data/raw/", import.meta.url);
 const CACHE = new URL("../data/cache/", import.meta.url);
@@ -124,7 +125,15 @@ writeFileSync(
   new URL("./airports.json", PUBLIC),
   JSON.stringify({
     generatedAt: new Date().toISOString(),
-    airports: airports.map((a) => [a.iata, a.name, a.city, a.country, a.lat, a.lon, a.size]),
+    airports: airports.map((a) => [
+      a.iata,
+      a.name,
+      resolveCityName(a.iata, a.city),
+      a.country,
+      a.lat,
+      a.lon,
+      a.size,
+    ]),
   }),
 );
 writeFileSync(new URL("./routes.bin", PUBLIC), Buffer.from(encodeRoutes(routes)));
