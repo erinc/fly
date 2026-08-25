@@ -1,0 +1,81 @@
+:root {
+  /* Colours mirror the palette in src/geo/projection.ts (COLORS) — that
+     module is the source of truth; CSS cannot import TypeScript, so the
+     values are duplicated here and must be kept in sync. */
+  --ocean: #dceaf2;
+  --land: #f2f0eb;
+  --border: #b3ada2;
+  --ink: #1a1a1a;
+  --muted: #8d877c;
+  --panel: #fff;
+  --hairline: #e6e3de;
+  --a: #d94f45;
+  --b: #2b6cb0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { background: var(--ocean); color: var(--ink); overflow: hidden; }
+
+#app { display: flex; height: 100dvh; }
+.map { position: relative; flex: 1; min-width: 0; }
+.map canvas, .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map svg { pointer-events: none; }
+
+.panel {
+  width: 320px; flex: 0 0 320px; background: var(--panel);
+  border-right: 1px solid var(--hairline); padding: 18px 16px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+}
+.panel .grab { display: none; }
+
+.brand { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 12px; }
+
+.picker { position: relative; display: flex; align-items: center; gap: 8px;
+  background: #f4f3f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.picker .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.picker input { flex: 1; border: 0; background: transparent; font: inherit; font-size: 13px; outline: none; min-width: 0; }
+.results { position: absolute; z-index: 10; top: 100%; left: 0; right: 0; margin: 4px 0 0;
+  padding: 4px; list-style: none; background: #fff; border: 1px solid var(--hairline);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(20,30,45,.14); max-height: 260px; overflow-y: auto; }
+.results li { padding: 7px 8px; border-radius: 6px; font-size: 13px; cursor: pointer;
+  display: flex; gap: 8px; align-items: baseline; }
+.results li.active, .results li:hover { background: #f1efeb; }
+.results em { margin-left: auto; color: var(--muted); font-style: normal; font-size: 11px; }
+
+.label { font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); margin: 14px 0 6px; }
+.slider input[type="range"] { width: 100%; accent-color: var(--ink); }
+.readout { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+
+.list { margin-top: 8px; }
+.row { display: flex; justify-content: space-between; gap: 10px; width: 100%;
+  padding: 7px 4px; border: 0; border-bottom: 1px solid #efedea; background: none;
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer; color: inherit; }
+.row:hover { background: #faf9f7; }
+.row em { color: var(--muted); font-style: normal; font-size: 11px; }
+.row .mut, .empty { color: var(--muted); }
+.tag { font-style: normal; font-size: 10px; color: var(--muted);
+  border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px; }
+.empty { font-size: 13px; }
+
+.footer { margin-top: auto; padding-top: 16px; font-size: 10px; color: var(--muted); line-height: 1.5; }
+.footer a { color: inherit; }
+
+@media (max-width: 760px) {
+  #app { flex-direction: column; }
+  .map { flex: 1; }
+  .panel {
+    position: fixed; left: 0; right: 0; bottom: 0; width: auto; flex: none;
+    border-right: 0; border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 22px rgba(20,30,45,.16);
+    padding: 8px 16px 20px; max-height: 82dvh;
+    transition: height .22s ease;
+  }
+  .panel.snap-low { height: 42dvh; }
+  .panel.snap-high { height: 82dvh; }
+  .panel .grab { display: block; width: 36px; height: 4px; background: #d8d4cd;
+    border-radius: 2px; margin: 4px auto 10px; touch-action: none; cursor: grab; }
+  .brand { display: none; }
+}
