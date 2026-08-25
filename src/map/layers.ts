@@ -4,6 +4,7 @@ import { arcSegments } from "../geo/arc.js";
 import type { Airport } from "../data/bundle.js";
 import type { Reachable } from "../reach/query.js";
 import { tooltipLines, type OriginLeg } from "./tooltip.js";
+import { MAX_AIRPORTS } from "../theme.js";
 
 export type OriginLayer = {
   origin: Airport;
@@ -20,6 +21,15 @@ const DOT_HIGHLIGHT_RADIUS = 5.5;
 
 type HighlightArc = { latlngs: [number, number][]; color: string };
 type HighlightData = { arcs: HighlightArc[]; lat: number; lon: number };
+
+// A destination can be reached from at most MAX_AIRPORTS origins (the app
+// caps the selected-airport list at that length). Each origin's arc is one
+// great-circle path, and splitAtAntimeridian only ever produces 2 segments
+// for a single path (one possible crossing of the seam) — a great circle
+// between two points crosses any given meridian at most once. So the worst
+// case for one destination is MAX_AIRPORTS * 2 polyline segments; that's
+// the fixed pool size below. Sized from that reasoning, not a guess.
+const HIGHLIGHT_POOL_SIZE = MAX_AIRPORTS * 2;
 
 /**
  * Arcs, destination dots and origin markers.
@@ -39,24 +49,65 @@ export function createReachLayer(map: L.Map) {
   const renderer = L.canvas({ padding: 0.25 });
   const group = L.layerGroup().addTo(map);
 
-  // Hover highlighting draws into a second, separate renderer/group so it
+  // Hover highlighting draws into a second, separate canvas/group so it
   // never touches the base canvas. Leaflet's canvas renderer has no partial
   // invalidation: any setStyle/setRadius/bringToFront on a canvas-rendered
-  // path clears and repaints the *entire* canvas, which with ~30,000 base
-  // vertices made hovering down the destination list flash the whole map.
-  // Only a handful of paths ever live in the highlight layer at once, so
-  // the default SVG renderer (one DOM node per path, updated in place) is
-  // the right tool here — it's added after `group` so its DOM node stacks
-  // above the base canvas.
-  const highlightRenderer = L.svg();
+  // path clears and repaints the *entire* canvas it belongs to, which with
+  // ~30,000 base vertices made hovering down the destination list flash the
+  // whole map.
+  //
+  // The fix isn't a different renderer per se — it's that highlight() must
+  // never create or destroy layers, only mutate a fixed pool. Once that's
+  // true, a dedicated L.canvas() is the better choice of the two:
+  //   - It touches zero DOM. L.svg() would keep persistent <path> nodes,
+  //     which is fine for churn but every setLatLngs/setStyle on them still
+  //     triggers Chromium style/layout recalc on real DOM elements, and the
+  //     browser has to manage those nodes' paint/composite layering.
+  //   - It redraws only its own canvas, which holds at most
+  //     HIGHLIGHT_POOL_SIZE + 1 tiny paths — cheap to fully repaint on the
+  //     rare occasions Leaflet does redraw it (e.g. on setStyle), and that
+  //     repaint never touches the base canvas's ~30,000 vertices.
+  // It's added after `group` so it stacks above the base canvas.
+  const highlightRenderer = L.canvas({ padding: 0.25 });
   const highlightGroup = L.layerGroup().addTo(map);
+
+  // Fixed pool of highlight layers, created once and reused for the
+  // lifetime of this reach layer. highlight() only ever calls
+  // setLatLngs/setStyle/setLatLng on these — never addTo/removeLayer/
+  // clearLayers/new L.polyline(...), so hovering never churns layers.
+  const highlightPool: L.Polyline[] = [];
+  for (let i = 0; i < HIGHLIGHT_POOL_SIZE; i++) {
+    highlightPool.push(
+      L.polyline([], {
+        renderer: highlightRenderer,
+        ...ARC_HIGHLIGHT_STYLE,
+        interactive: false,
+      }).addTo(highlightGroup),
+    );
+  }
+  // Track each pooled polyline's last-applied colour so highlight() can
+  // skip redundant setStyle calls (a no-op setStyle is itself a repaint of
+  // the highlight canvas).
+  const highlightPoolColor: (string | null)[] = new Array(HIGHLIGHT_POOL_SIZE).fill(null);
+  // CircleMarker has no "empty latlngs" equivalent to hide it, so it starts
+  // (and is hidden again) with radius 0 — setRadius, like setLatLngs([]) on
+  // a polyline, hides it without detaching it from the map.
+  const highlightMarker = L.circleMarker([0, 0], {
+    renderer: highlightRenderer,
+    radius: 0,
+    fillOpacity: 1,
+    weight: 0,
+    interactive: false,
+  }).addTo(highlightGroup);
+  let highlightMarkerColor: string | null = null;
+  let highlightMarkerVisible = false;
 
   // Per-destination lookups rebuilt on every update(), since clearLayers()
   // destroys the Leaflet objects they point to.
   // - dotByAirport: base dot markers, used only to wire up hover events.
   // - highlightData: plain coordinate/colour data (not Leaflet objects) used
-  //   by highlight() to draw fresh paths into the highlight layer, so the
-  //   base group's polylines/markers are never mutated after creation.
+  //   by highlight() to reposition the pooled highlight layers, so the base
+  //   group's polylines/markers are never mutated after creation.
   let dotByAirport = new Map<number, L.CircleMarker>();
   let highlightData = new Map<number, HighlightData>();
   let highlighted: number | null = null;
@@ -65,7 +116,11 @@ export function createReachLayer(map: L.Map) {
 
   function update(layers: OriginLayer[], airports: Airport[]): void {
     group.clearLayers();
-    highlightGroup.clearLayers();
+    // The highlight pool is never rebuilt — only the base `group` is
+    // destroyed and recreated here. Reset the pool to its hidden state so
+    // update() (e.g. from a slider change) doesn't leave a stale highlight
+    // drawn for a destination that may no longer exist.
+    hideHighlightPool();
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
@@ -159,36 +214,60 @@ export function createReachLayer(map: L.Map) {
     }
   }
 
-  /** Redraw the highlight layer for one destination airport (or clear it,
-   *  for null). Only ever touches `highlightGroup`/`highlightRenderer` —
-   *  the base group's paths are never mutated. */
+  /** Hide every pooled highlight layer without detaching it from the map:
+   *  setLatLngs([]) renders nothing but keeps the polyline attached, and
+   *  setRadius(0) does the same for the marker. Never removes/creates
+   *  layers. */
+  function hideHighlightPool(): void {
+    for (const p of highlightPool) p.setLatLngs([]);
+    if (highlightMarkerVisible) {
+      highlightMarker.setRadius(0);
+      highlightMarkerVisible = false;
+    }
+  }
+
+  /** Reposition the highlight pool for one destination airport (or hide it,
+   *  for null). Only ever mutates the fixed `highlightPool`/`highlightMarker`
+   *  — never adds, removes, or constructs a layer, and never clears the
+   *  highlight group. The base group's paths are untouched either way. */
   function drawHighlight(airport: number | null): void {
-    highlightGroup.clearLayers();
     highlighted = airport;
-    if (airport === null) return;
-
-    const data = highlightData.get(airport);
-    if (!data) return;
-
-    for (const arc of data.arcs) {
-      L.polyline(arc.latlngs, {
-        renderer: highlightRenderer,
-        color: arc.color,
-        ...ARC_HIGHLIGHT_STYLE,
-        interactive: false,
-      }).addTo(highlightGroup);
+    if (airport === null) {
+      hideHighlightPool();
+      return;
     }
 
+    const data = highlightData.get(airport);
+    if (!data) {
+      hideHighlightPool();
+      return;
+    }
+
+    // data.arcs.length is bounded by HIGHLIGHT_POOL_SIZE (see its
+    // derivation above), so every arc gets a pool slot.
+    let i = 0;
+    for (; i < data.arcs.length; i++) {
+      const arc = data.arcs[i]!;
+      const poly = highlightPool[i]!;
+      poly.setLatLngs(arc.latlngs);
+      if (highlightPoolColor[i] !== arc.color) {
+        poly.setStyle({ color: arc.color });
+        highlightPoolColor[i] = arc.color;
+      }
+    }
+    // Hide any pool members left over from a previous, larger highlight.
+    for (; i < highlightPool.length; i++) highlightPool[i]!.setLatLngs([]);
+
     const color = data.arcs[0]?.color ?? "#111";
-    L.circleMarker([data.lat, data.lon], {
-      renderer: highlightRenderer,
-      radius: DOT_HIGHLIGHT_RADIUS,
-      color,
-      fillColor: color,
-      fillOpacity: 1,
-      weight: 0,
-      interactive: false,
-    }).addTo(highlightGroup);
+    highlightMarker.setLatLng([data.lat, data.lon]);
+    if (!highlightMarkerVisible) {
+      highlightMarker.setRadius(DOT_HIGHLIGHT_RADIUS);
+      highlightMarkerVisible = true;
+    }
+    if (highlightMarkerColor !== color) {
+      highlightMarker.setStyle({ color, fillColor: color });
+      highlightMarkerColor = color;
+    }
   }
 
   /** Highlight all arcs and the dot for one destination airport, restoring
