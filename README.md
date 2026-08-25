@@ -80,3 +80,19 @@ typecheck, and a production build. A monthly scheduled workflow
 (`.github/workflows/refresh.yml`) re-crawls Wikipedia, rebuilds the bundle,
 commits `public/airports.json` and `public/routes.bin` if they changed, and
 deploys to Cloudflare Workers via `wrangler-action`.
+
+### Required repository secrets
+
+The scheduled deploy will fail without these, configured under
+**Settings → Secrets and variables → Actions**:
+
+| Secret | Purpose |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | API token with Workers Scripts: Edit permission |
+| `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account to deploy into |
+
+The refresh workflow also needs `contents: write` permission to push the
+regenerated bundle back to the branch; this is already declared in the
+workflow. If the 5% drift gate trips, the job fails on purpose — that means
+the dataset moved more than expected and a human should look before it
+ships. `--force-bundle` is deliberately not used in CI.
