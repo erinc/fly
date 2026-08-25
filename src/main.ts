@@ -58,7 +58,7 @@ const selector = createAirportSelector({
     state = { ...state, airports: codes };
     commit({ refocus: true });
   },
-  onMobileChoose: () => panel.close(),
+  onMobileChoose: () => panel.close({ restoreFocus: false }),
 });
 
 let slider: ReturnType<typeof createSlider>;

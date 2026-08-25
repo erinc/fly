@@ -4,7 +4,7 @@ export type Panel = {
   el: HTMLElement;
   backdrop: HTMLButtonElement;
   trigger: HTMLButtonElement;
-  close: () => void;
+  close: (options?: { restoreFocus?: boolean }) => void;
 };
 
 /** Fixed left rail on wide screens, full-height overlay drawer on mobile. */
@@ -53,11 +53,11 @@ export function createPanel(
     else el.removeAttribute("aria-hidden");
   };
 
-  const setOpen = (next: boolean) => {
+  const setOpen = (next: boolean, restoreFocus = true) => {
     open = next;
     sync();
     if (open) close.focus();
-    else if (mobile.matches) trigger.focus();
+    else if (mobile.matches && restoreFocus) trigger.focus();
   };
 
   trigger.addEventListener("click", () => setOpen(true));
@@ -84,5 +84,10 @@ export function createPanel(
 
   el.append(drawerHeader, ...children);
   sync();
-  return { el, backdrop, trigger, close: () => setOpen(false) };
+  return {
+    el,
+    backdrop,
+    trigger,
+    close: (closeOptions = {}) => setOpen(false, closeOptions.restoreFocus ?? true),
+  };
 }
