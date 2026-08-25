@@ -32,9 +32,15 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
    on overflow: hidden alone is not enough: once the canvas is promoted to
    its own compositing layer (more likely because .map is a stacking
    context via z-index: 0 below), overflow clipping can stop applying and
-   the canvas paints over the panel. contain: paint makes the clip
-   unconditional. */
-.map { position: relative; flex: 1; min-width: 0; z-index: 0; contain: paint; }
+   the canvas paints over the panel.
+
+   The panel defends itself instead: it is positioned with z-index 20, so it
+   always paints above this element's z-index 0. `contain: paint` was tried
+   here as an extra guarantee and REMOVED — in Chromium-based browsers
+   (reported in Brave) containing a composited canvas this way caused constant
+   re-rasterisation and visible page-wide flicker. Leaflet's own
+   `.leaflet-container { overflow: hidden }` still clips the canvas. */
+.map { position: relative; flex: 1; min-width: 0; z-index: 0; }
 
 /* Sea. Leaflet draws the land GeoJSON over this. Leaflet adds
    "leaflet-container" to the same element passed to L.map(), not a child,
