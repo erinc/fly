@@ -43,7 +43,13 @@ export function createPicker(opts: {
     current.forEach((a, i) => {
       const li = document.createElement("li");
       li.className = i === active ? "active" : "";
-      li.innerHTML = `<b>${a.iata}</b> <span>${a.city || a.name}</span> <em>${a.country}</em>`;
+      const b = document.createElement("b");
+      b.textContent = a.iata;
+      const span = document.createElement("span");
+      span.textContent = a.city || a.name;
+      const em = document.createElement("em");
+      em.textContent = a.country;
+      li.append(b, " ", span, " ", em);
       li.addEventListener("mousedown", (e) => { e.preventDefault(); choose(a); });
       results.appendChild(li);
     });

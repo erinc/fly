@@ -22,9 +22,30 @@ export function createList(opts: {
       const row = document.createElement("button");
       row.className = "row";
       row.type = "button";
-      row.innerHTML =
-        `<span>${ap.city || ap.name} <em>${ap.iata}</em>${r.seasonal ? ' <i class="tag">seasonal</i>' : ""}</span>` +
-        `<span class="mut">${formatDuration(r.minutes)}</span>`;
+
+      const left = document.createElement("span");
+      left.append(`${ap.city || ap.name} `);
+      const em = document.createElement("em");
+      em.textContent = ap.iata;
+      left.appendChild(em);
+      if (r.seasonal) {
+        const tag = document.createElement("i");
+        tag.className = "tag";
+        tag.textContent = "seasonal";
+        left.append(" ", tag);
+      }
+      if (r.charter) {
+        const tag = document.createElement("i");
+        tag.className = "tag";
+        tag.textContent = "charter";
+        left.append(" ", tag);
+      }
+
+      const right = document.createElement("span");
+      right.className = "mut";
+      right.textContent = formatDuration(r.minutes);
+
+      row.append(left, right);
       row.addEventListener("mouseenter", () => opts.onHover(r.airport));
       row.addEventListener("mouseleave", () => opts.onHover(null));
       row.addEventListener("click", () => opts.onSelect(r.airport));
