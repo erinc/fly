@@ -35,5 +35,8 @@ test("ignores malformed bindings rather than throwing", () => {
 
 test("user agent identifies the project and a contact", () => {
   expect(USER_AGENT).toMatch(/fly\.eric\.fun/);
-  expect(USER_AGENT).toMatch(/@/);
+  // Wikimedia's UA policy wants a way to reach the operator. An email address
+  // or a project URL both satisfy it; we use a URL to avoid publishing a
+  // personal address in a public repository.
+  expect(USER_AGENT).toMatch(/@|https?:\/\//);
 });

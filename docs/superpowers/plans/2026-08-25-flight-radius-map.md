@@ -17,7 +17,7 @@
 - **Runtime is 100% static.** No Worker logic, no server, no API keys, no runtime network calls beyond fetching the app's own assets.
 - **Duration model is exactly** `duration_hours = 0.66 + great_circle_km / 790`. Constants `OVERHEAD_HOURS = 0.66`, `CRUISE_KMH = 790`. Never change these without re-running the §5 regression table.
 - **Slider range is 30–480 minutes, 15-minute steps.**
-- **Wikipedia API calls MUST set** `redirects=1` and a descriptive `User-Agent` of the form `fly.eric.fun/1.0 (https://fly.eric.fun; claude@eaa5.com)`.
+- **Wikipedia API calls MUST set** `redirects=1` and a descriptive `User-Agent` of the form `fly.eric.fun/1.0 (https://fly.eric.fun; https://github.com/erinc/fly)`.
 - **Airport titles MUST be resolved via Wikidata `P238`**, never by matching OurAirports names.
 - **Wikipedia batch size is 50 titles per request.**
 - **Colours are exact:** ocean `#dceaf2`, land `#f2f0eb`, borders `#b3ada2`, country labels `#9a948a`, origin A `#d94f45`, origin B `#2b6cb0`, shared destination `#111`.
@@ -608,7 +608,7 @@ Expected: FAIL — cannot resolve `./wikidata.js`.
 // scripts/sources/wikidata.ts
 
 export const USER_AGENT =
-  "fly.eric.fun/1.0 (https://fly.eric.fun; claude@eaa5.com)";
+  "fly.eric.fun/1.0 (https://fly.eric.fun; https://github.com/erinc/fly)";
 
 const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 

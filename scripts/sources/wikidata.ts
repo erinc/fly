@@ -1,5 +1,5 @@
 export const USER_AGENT =
-  "fly.eric.fun/1.0 (https://fly.eric.fun; claude@eaa5.com)";
+  "fly.eric.fun/1.0 (https://fly.eric.fun; https://github.com/erinc/fly)";
 
 const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
