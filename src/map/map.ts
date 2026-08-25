@@ -26,7 +26,7 @@ export async function createMap(container: HTMLElement): Promise<MapLibreMap> {
     zoom: 1,
     minZoom: 1,
     maxZoom: 8,
-    renderWorldCopies: false,
+    renderWorldCopies: true,
     attributionControl: false,
     dragRotate: false,
     pitchWithRotate: false,
