@@ -51,7 +51,21 @@ export function createList(opts: {
         el.appendChild(section(`From ${labelA}`, a, airports));
         return;
       }
-      el.appendChild(section("Reachable from both", a.filter((r) => shared.has(r.airport)), airports));
+      if (a.length === 0 && b.length === 0) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = `No nonstop destinations within this flight time from ${labelA} or ${labelB}.`;
+        el.appendChild(p);
+        return;
+      }
+      const bothWrap = section("Reachable from both", a.filter((r) => shared.has(r.airport)), airports);
+      if (shared.size === 0) {
+        const note = document.createElement("p");
+        note.className = "empty";
+        note.textContent = "No overlap at this flight time — see each airport's destinations below.";
+        bothWrap.insertBefore(note, bothWrap.children[1] ?? null);
+      }
+      el.appendChild(bothWrap);
       el.appendChild(section(`${labelA} only`, a.filter((r) => !shared.has(r.airport)), airports));
       el.appendChild(section(`${labelB} only`, b.filter((r) => !shared.has(r.airport)), airports));
     },
