@@ -1,21 +1,24 @@
+import { MAX_AIRPORTS } from "../theme.js";
+
 export const MIN_MINUTES = 30;
 export const MAX_MINUTES = 480;
 export const STEP_MINUTES = 15;
 
 export type AppState = {
-  a: string | null;
-  b: string | null;
+  airports: string[];
   minutes: number;
   yearRoundOnly: boolean;
 };
 
 export const DEFAULT_STATE: AppState = {
-  a: null, b: null, minutes: 180, yearRoundOnly: false,
+  airports: [],
+  minutes: 180,
+  yearRoundOnly: false,
 };
 
-function code(raw: string | null): string | null {
+function code(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const up = raw.toUpperCase();
+  const up = raw.trim().toUpperCase();
   return /^[A-Z]{3}$/.test(up) ? up : null;
 }
 
@@ -26,21 +29,31 @@ export function clampMinutes(n: number): number {
 
 export function parseState(search: string): AppState {
   const p = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  const rawT = Number(p.get("t"));
+
+  // Canonical form is a comma-separated `a`. The legacy two-slot form
+  // (?a=BER&b=LIS) is still accepted so previously shared links keep working.
+  const raw = [...(p.get("a") ?? "").split(","), p.get("b") ?? ""];
+  const airports: string[] = [];
+  for (const entry of raw) {
+    const c = code(entry);
+    if (c && !airports.includes(c) && airports.length < MAX_AIRPORTS) airports.push(c);
+  }
+
+  const rawT = p.get("t");
+  const n = Number(rawT);
   return {
-    a: code(p.get("a")),
-    b: code(p.get("b")),
-    minutes: Number.isFinite(rawT) && p.get("t") !== null && p.get("t") !== ""
-      ? clampMinutes(rawT)
-      : DEFAULT_STATE.minutes,
+    airports,
+    minutes:
+      rawT !== null && rawT !== "" && Number.isFinite(n)
+        ? clampMinutes(n)
+        : DEFAULT_STATE.minutes,
     yearRoundOnly: p.get("yr") === "1",
   };
 }
 
 export function toSearch(state: AppState): string {
   const p = new URLSearchParams();
-  if (state.a) p.set("a", state.a);
-  if (state.b) p.set("b", state.b);
+  if (state.airports.length > 0) p.set("a", state.airports.join(","));
   p.set("t", String(state.minutes));
   if (state.yearRoundOnly) p.set("yr", "1");
   return `?${p}`;

@@ -1,28 +1,62 @@
 import { expect, test } from "vitest";
 import { DEFAULT_STATE, MAX_MINUTES, MIN_MINUTES, parseState, toSearch } from "./url.js";
 
-test("parses both airports and the time budget", () => {
-  expect(parseState("?a=BER&b=LIS&t=180")).toEqual({
-    a: "BER", b: "LIS", minutes: 180, yearRoundOnly: false,
-  });
+// Airport tests
+test("parses a comma-separated airport list", () => {
+  expect(parseState("?a=BER,LIS,IST").airports).toEqual(["BER", "LIS", "IST"]);
 });
 
-test("an empty search yields the defaults", () => {
-  expect(parseState("")).toEqual(DEFAULT_STATE);
+test("parses a single airport", () => {
+  expect(parseState("?a=BER").airports).toEqual(["BER"]);
 });
 
-test("a single airport is a valid state", () => {
-  expect(parseState("?a=BER").b).toBeNull();
+test("an empty search yields no airports", () => {
+  expect(parseState("").airports).toEqual([]);
 });
 
-test("airport codes are upper-cased", () => {
-  expect(parseState("?a=ber").a).toBe("BER");
+test("upper-cases codes", () => {
+  expect(parseState("?a=ber,lis").airports).toEqual(["BER", "LIS"]);
 });
 
-test("rejects codes that are not three letters", () => {
-  expect(parseState("?a=BERLIN").a).toBeNull();
+test("drops codes that are not three letters", () => {
+  expect(parseState("?a=BER,BERLIN,LI,LIS").airports).toEqual(["BER", "LIS"]);
 });
 
+test("drops duplicates, keeping first occurrence", () => {
+  expect(parseState("?a=BER,LIS,BER").airports).toEqual(["BER", "LIS"]);
+});
+
+test("caps at three airports", () => {
+  expect(parseState("?a=BER,LIS,IST,BKK,LHR").airports).toEqual(["BER", "LIS", "IST"]);
+});
+
+test("folds the legacy two-parameter form", () => {
+  expect(parseState("?a=BER&b=LIS&t=180").airports).toEqual(["BER", "LIS"]);
+});
+
+test("legacy b alone still yields an airport", () => {
+  expect(parseState("?b=LIS").airports).toEqual(["LIS"]);
+});
+
+test("toSearch emits the canonical comma-separated form", () => {
+  expect(toSearch({ airports: ["BER", "LIS"], minutes: 180, yearRoundOnly: false }))
+    .toBe("?a=BER%2CLIS&t=180");
+});
+
+test("toSearch omits the airport parameter when none are selected", () => {
+  expect(toSearch({ airports: [], minutes: 180, yearRoundOnly: false })).toBe("?t=180");
+});
+
+test("round-trips through toSearch", () => {
+  const state = { airports: ["BER", "LIS", "IST"], minutes: 195, yearRoundOnly: true };
+  expect(parseState(toSearch(state))).toEqual(state);
+});
+
+test("DEFAULT_STATE has no airports", () => {
+  expect(DEFAULT_STATE.airports).toEqual([]);
+});
+
+// Minutes tests (unchanged)
 test("clamps the budget below the minimum", () => {
   expect(parseState("?t=5").minutes).toBe(MIN_MINUTES);
 });
@@ -37,14 +71,4 @@ test("snaps the budget to the 15-minute step", () => {
 
 test("a non-numeric budget falls back to the default", () => {
   expect(parseState("?t=soon").minutes).toBe(DEFAULT_STATE.minutes);
-});
-
-test("round-trips through toSearch", () => {
-  const state = { a: "BER", b: "LIS", minutes: 195, yearRoundOnly: true };
-  expect(parseState(toSearch(state))).toEqual(state);
-});
-
-test("omits empty slots from the query string", () => {
-  expect(toSearch({ a: "BER", b: null, minutes: 180, yearRoundOnly: false }))
-    .toBe("?a=BER&t=180");
 });
