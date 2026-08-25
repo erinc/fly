@@ -48,7 +48,7 @@ mapEl.className = "map";
 const brand = document.createElement("a");
 brand.className = "brand";
 brand.href = "/";
-brand.textContent = "✈️ fly.eric.fun";
+brand.textContent = "✈️ FLY.ERIC.FUN";
 
 let panel: ReturnType<typeof createPanel>;
 
