@@ -50,3 +50,52 @@ test("every split segment has at least two points", () => {
     expect(seg.length).toBeGreaterThanOrEqual(2);
   }
 });
+
+test("antimeridian split interpolates boundary crossing and preserves all points", () => {
+  // For a path [170, -170, -160], the original buggy code would drop the first point.
+  // The fixed version interpolates at ±180 and preserves all real points.
+  const points = [
+    { lat: 0, lon: 170 },
+    { lat: 0, lon: -170 },
+    { lat: 0, lon: -160 },
+  ];
+  const segments = splitAtAntimeridian(points);
+  // Should produce 2 segments.
+  expect(segments.length).toBe(2);
+  // Each segment must be drawable (≥2 points).
+  for (const seg of segments) {
+    expect(seg.length).toBeGreaterThanOrEqual(2);
+  }
+  // Count real input points (exclude interpolated boundary points at exactly ±180).
+  const realPoints = segments.flat().filter((p) => Math.abs(Math.abs(p.lon) - 180) > 0.01);
+  expect(realPoints.length).toBe(3); // All three input points preserved.
+});
+
+test("antimeridian crossing produces segments with seam endpoints at ±180 and matching latitude", () => {
+  const points = [
+    { lat: 30, lon: 170 },
+    { lat: 32, lon: -170 },
+  ];
+  const segments = splitAtAntimeridian(points);
+  expect(segments.length).toBe(2);
+  // First segment should end at +180.
+  const seg1End = segments[0]![segments[0]!.length - 1]!;
+  expect(seg1End.lon).toBeCloseTo(180, 5);
+  // Second segment should start at -180.
+  const seg2Start = segments[1]![0]!;
+  expect(seg2Start.lon).toBeCloseTo(-180, 5);
+  // Both boundary points should have the same latitude (linearly interpolated).
+  expect(seg1End.lat).toBeCloseTo(seg2Start.lat, 5);
+});
+
+test("antipodal endpoints do not produce NaN or Infinity", () => {
+  // Points at approximately opposite poles.
+  const north = { lat: 89, lon: 0 };
+  const south = { lat: -89, lon: 180 };
+  const pts = interpolateGreatCircle(north, south, 16);
+  expect(pts).toHaveLength(17);
+  for (const p of pts) {
+    expect(Number.isFinite(p.lat)).toBe(true);
+    expect(Number.isFinite(p.lon)).toBe(true);
+  }
+});
