@@ -29,7 +29,7 @@ export function createLabelLayer(map: L.Map, labels: CountryLabel[]) {
       return [p.x, p.y];
     };
     for (const placed of placeLabels(visibleLabels(labels, map.getZoom()), project)) {
-      L.marker([placed.label.lat, placed.label.lon], {
+      const marker = L.marker([placed.label.lat, placed.label.lon], {
         pane: LABEL_PANE,
         interactive: false,
         keyboard: false,
@@ -38,10 +38,18 @@ export function createLabelLayer(map: L.Map, labels: CountryLabel[]) {
           html: "",
           iconSize: [0, 0],
         }),
-      })
-        .addTo(group)
-        .getElement()
-        ?.appendChild(document.createTextNode(placed.text));
+      }).addTo(group);
+      // Leaflet writes an inline transform (and, via iconSize, an inline
+      // width/height) on the marker's own element to position it — centring
+      // that element with CSS doesn't work (see the .country-label comment
+      // in styles.css). Centre a child span instead and leave Leaflet's
+      // element alone.
+      const el = marker.getElement();
+      if (el) {
+        const span = document.createElement("span");
+        span.textContent = placed.text;
+        el.appendChild(span);
+      }
     }
   };
 

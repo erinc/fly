@@ -10,8 +10,6 @@
   --muted: #8d877c;
   --panel: #fff;
   --hairline: #e6e3de;
-  --a: #d94f45;
-  --b: #2b6cb0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -21,7 +19,12 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 
 #app { display: flex; height: 100dvh; }
 .load-error { margin: auto; padding: 24px; font-size: 14px; color: var(--muted); text-align: center; }
-.map { position: relative; flex: 1; min-width: 0; }
+/* z-index: 0 makes this positioned element establish its own stacking
+   context, so Leaflet's internal z-indexes (panes at 400-650, zoom
+   controls at 1000) are contained within it instead of competing in the
+   root stacking context against .panel's z-index: 10 below. Without this,
+   Leaflet's layers outrank the mobile sheet regardless of DOM order. */
+.map { position: relative; flex: 1; min-width: 0; z-index: 0; }
 
 /* Sea. Leaflet draws the land GeoJSON over this. Leaflet adds
    "leaflet-container" to the same element passed to L.map(), not a child,
@@ -33,14 +36,27 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   font: inherit;
 }
 
+/* Leaflet gotchas, learned the hard way (twice now):
+   1. Never set `transform` on a Leaflet marker-icon class. Leaflet writes
+      an inline `transform: translate3d(...)` on the icon element itself
+      (Marker._setPos) to position it, and inline style always beats a
+      class rule — a transform declared here is simply dead.
+   2. Never size or position Leaflet's internal canvas/svg renderer or pane
+      elements from app CSS. Leaflet manages those panes' geometry itself;
+      app CSS should only style content Leaflet doesn't touch, like the
+      child element below. */
 .country-label {
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  transform: translate(-50%, -50%);
   text-shadow: 0 0 2px var(--ocean), 0 0 2px var(--ocean);
+}
+.country-label > span {
+  position: absolute;
+  display: block;
+  transform: translate(-50%, -50%);
 }
 
 .panel {
@@ -95,10 +111,13 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
     box-shadow: 0 -6px 22px rgba(20,30,45,.16);
     padding: 8px 16px 20px; max-height: 82dvh;
     transition: height .22s ease;
-    /* .panel becomes position:fixed here, so it and .map (position:relative)
-       both form stacking contexts and paint in DOM order — main.ts appends
-       the map after the panel, so without an explicit z-index the map
-       painted over the entire sheet. */
+    /* .panel becomes position:fixed here, and .map has its own stacking
+       context (see the z-index: 0 on .map above — required so Leaflet's
+       internal z-indexes, up to 1000 for zoom controls, stay contained
+       inside .map instead of leaking into the root stacking context).
+       With both establishing stacking contexts, this z-index is what
+       keeps the sheet above the map on mobile; without it the map's
+       context would still paint after .panel in DOM order and cover it. */
     z-index: 10;
   }
   .panel.snap-low { height: 42dvh; }
