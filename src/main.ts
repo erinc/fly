@@ -58,11 +58,36 @@ const selector = createAirportSelector({
   },
 });
 
-const slider = createSlider({
+let slider: ReturnType<typeof createSlider>;
+let mapSlider: ReturnType<typeof createSlider>;
+
+const updateMinutes = (minutes: number) => {
+  state = { ...state, minutes };
+  slider.setValue(minutes);
+  mapSlider.setValue(minutes);
+  draw();
+};
+
+const saveMinutes = (minutes: number) => {
+  state = { ...state, minutes };
+  slider.setValue(minutes);
+  mapSlider.setValue(minutes);
+  pushUrl();
+};
+
+slider = createSlider({
   value: state.minutes,
-  onInput: (minutes) => { state = { ...state, minutes }; draw(); },
-  onChange: (minutes) => { state = { ...state, minutes }; pushUrl(); },
+  onInput: updateMinutes,
+  onChange: saveMinutes,
 });
+
+mapSlider = createSlider({
+  value: state.minutes,
+  label: "Flight time",
+  onInput: updateMinutes,
+  onChange: saveMinutes,
+});
+mapSlider.el.classList.add("mobile-map-slider");
 
 const toggle = createToggle({
   label: "Year-round routes only",
@@ -76,7 +101,13 @@ const panel = createPanel(
   [brand, selector.el, slider.el, toggle.el, list.el],
   { initiallyOpen: state.airports.length === 0 },
 );
-app.replaceChildren(panel.el, panel.backdrop, panel.trigger, mapEl);
+app.replaceChildren(
+  panel.el,
+  panel.backdrop,
+  panel.trigger,
+  mapSlider.el,
+  mapEl,
+);
 
 let map: Awaited<ReturnType<typeof createMap>>;
 try {
@@ -151,6 +182,7 @@ window.addEventListener("popstate", () => {
   state = normalise(parseState(location.search));
   selector.setValue(state.airports);
   slider.setValue(state.minutes);
+  mapSlider.setValue(state.minutes);
   toggle.setValue(state.yearRoundOnly);
   draw();
   refocus();

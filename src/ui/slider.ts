@@ -4,6 +4,7 @@ import { formatDuration } from "./format.js";
 
 export function createSlider(opts: {
   value: number;
+  label?: string;
   onInput: (minutes: number) => void;
   onChange: (minutes: number) => void;
 }) {
@@ -12,7 +13,7 @@ export function createSlider(opts: {
 
   const label = document.createElement("div");
   label.className = "label";
-  label.textContent = "Max flight time";
+  label.textContent = opts.label ?? "Max flight time";
 
   const input = document.createElement("input");
   input.type = "range";

@@ -13,16 +13,16 @@ export function createPanel(
 ): Panel {
   const el = document.createElement("aside");
   el.className = "panel";
-  el.id = "destinations-panel";
+  el.id = "airports-panel";
 
   const drawerHeader = document.createElement("div");
   drawerHeader.className = "drawer-header";
   const drawerTitle = document.createElement("strong");
-  drawerTitle.textContent = "Destinations";
+  drawerTitle.textContent = "Airports";
   const close = document.createElement("button");
   close.type = "button";
   close.className = "panel-close";
-  close.setAttribute("aria-label", "Close destinations");
+  close.setAttribute("aria-label", "Close airports");
   close.textContent = "×";
   drawerHeader.append(drawerTitle, close);
 
@@ -31,12 +31,12 @@ export function createPanel(
   trigger.className = "panel-trigger";
   trigger.setAttribute("aria-controls", el.id);
   trigger.setAttribute("aria-expanded", "false");
-  trigger.textContent = "Destinations";
+  trigger.textContent = "Airports";
 
   const backdrop = document.createElement("button");
   backdrop.type = "button";
   backdrop.className = "panel-backdrop";
-  backdrop.setAttribute("aria-label", "Close destinations");
+  backdrop.setAttribute("aria-label", "Close airports");
 
   const mobile = window.matchMedia("(max-width: 760px)");
   let open = options.initiallyOpen ?? false;
