@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { visibleLabels, type CountryLabel } from "./labels.js";
+import { createProjection } from "../geo/projection.js";
+import { placeLabels, visibleLabels, type CountryLabel } from "./labels.js";
 
 // rank is polygon area in square degrees, as emitted by scripts/basemap.ts
 const LABELS: CountryLabel[] = [
@@ -33,4 +34,47 @@ test("labels are sorted by prominence", () => {
 
 test("zoom is never allowed to divide by zero", () => {
   expect(() => visibleLabels(LABELS, 0)).not.toThrow();
+});
+
+// Mirrors the private box-estimation formula in labels.ts (FONT_SIZE=9,
+// CHAR_WIDTH = 9*0.66+0.8, LINE_HEIGHT = 9*1.3) so this test can verify the
+// invariant placeLabels is supposed to guarantee without exporting internals.
+const CHAR_WIDTH = 9 * 0.66 + 0.8;
+const LINE_HEIGHT = 9 * 1.3;
+
+function boxOf(x: number, y: number, text: string) {
+  const w = text.length * CHAR_WIDTH;
+  const h = LINE_HEIGHT;
+  return { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+}
+
+function boxesOverlap(a: ReturnType<typeof boxOf>, b: ReturnType<typeof boxOf>): boolean {
+  return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+}
+
+test("placed labels never overlap, even for a densely clustered set", () => {
+  // A cluster of small, closely-spaced European "countries" that would
+  // collide badly if collision suppression were broken — this is the shape
+  // of bug that once shipped 133 overlapping label pairs.
+  const cluster: CountryLabel[] = [
+    { name: "Belgium", lat: 50.5, lon: 4.5, rank: 20 },
+    { name: "Netherlands", lat: 52.1, lon: 5.3, rank: 18 },
+    { name: "Luxembourg", lat: 49.8, lon: 6.1, rank: 16 },
+    { name: "Switzerland", lat: 46.8, lon: 8.2, rank: 22 },
+    { name: "Austria", lat: 47.5, lon: 14.5, rank: 15 },
+    { name: "Czechia", lat: 49.8, lon: 15.5, rank: 17 },
+    { name: "Slovakia", lat: 48.7, lon: 19.7, rank: 12 },
+    { name: "Slovenia", lat: 46.1, lon: 14.8, rank: 10 },
+  ];
+
+  const projection = createProjection(1000, 600);
+  const placed = placeLabels(cluster, projection);
+  expect(placed.length).toBeGreaterThan(1);
+
+  const boxes = placed.map((p) => boxOf(p.x, p.y, p.text));
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      expect(boxesOverlap(boxes[i]!, boxes[j]!)).toBe(false);
+    }
+  }
 });
