@@ -107,15 +107,21 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
   return { layers, listGroups };
 }
 
+/** Last layers computed by draw(), reused by refocus() so selection changes
+ *  don't run reachable() a second time over the same origins. */
+let lastLayers: OriginLayer[] = [];
+
 function draw(): void {
   const { layers, listGroups } = groups();
+  lastLayers = layers;
   reachLayer.update(layers, dataset.airports);
   list.update({ airports: dataset.airports, groups: listGroups });
 }
 
-/** Fit the view to the current selection. Only ever called on selection change. */
+/** Fit the view to the current selection. Only ever called right after
+ *  draw(), so it reuses draw()'s layers instead of recomputing them. */
 function refocus(): void {
-  const { layers } = groups();
+  const layers = lastLayers;
   const pts = layers.flatMap((l) => [
     { lat: l.origin.lat, lon: l.origin.lon },
     ...l.destinations.flatMap((d) => {
