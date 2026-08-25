@@ -26,7 +26,13 @@ const DOT_HIGHLIGHT_RADIUS = 5.5;
  * the default SVG renderer would make a DOM node per path and stutter on pan.
  */
 export function createReachLayer(map: L.Map) {
-  const renderer = L.canvas({ padding: 0.3 });
+  // padding extends the canvas beyond the viewport so panning doesn't
+  // reveal unpainted edges before Leaflet redraws. Larger padding buys
+  // smoother panning at the cost of a bigger off-viewport canvas (which,
+  // per src/styles.css's .map { contain: paint }, is now always clipped to
+  // the map's box regardless). 0.1 is enough headroom for panning without
+  // needlessly overhanging into neighbouring layout, like the sidebar.
+  const renderer = L.canvas({ padding: 0.1 });
   const group = L.layerGroup().addTo(map);
 
   // Per-destination lookups rebuilt on every update(), since clearLayers()

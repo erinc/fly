@@ -24,7 +24,17 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
    controls at 1000) are contained within it instead of competing in the
    root stacking context against .panel's z-index: 10 below. Without this,
    Leaflet's layers outrank the mobile sheet regardless of DOM order. */
-.map { position: relative; flex: 1; min-width: 0; z-index: 0; }
+/* contain: paint guarantees this element clips its descendants to its own
+   box regardless of browser compositing/layerisation decisions. Leaflet's
+   canvas renderer is created with padding (see L.canvas({ padding }) in
+   src/map/layers.ts), so the canvas is deliberately larger than the
+   viewport and can overhang .map's box, including over the sidebar. Relying
+   on overflow: hidden alone is not enough: once the canvas is promoted to
+   its own compositing layer (more likely because .map is a stacking
+   context via z-index: 0 below), overflow clipping can stop applying and
+   the canvas paints over the panel. contain: paint makes the clip
+   unconditional. */
+.map { position: relative; flex: 1; min-width: 0; z-index: 0; contain: paint; }
 
 /* Sea. Leaflet draws the land GeoJSON over this. Leaflet adds
    "leaflet-container" to the same element passed to L.map(), not a child,
@@ -59,10 +69,16 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   transform: translate(-50%, -50%);
 }
 
+/* position: relative + z-index: 20 makes .panel a positioned element that
+   paints above .map (z-index: 0, its own stacking context) in the root
+   stacking context, on top of .map's own contain: paint clip. Belt and
+   braces: even if some descendant of .map ever escaped its box, the
+   sidebar still wins the paint order. */
 .panel {
   width: 320px; flex: 0 0 320px; background: var(--panel);
   border-right: 1px solid var(--hairline); padding: 18px 16px;
   overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  position: relative; z-index: 20;
 }
 .panel .grab { display: none; }
 
@@ -124,10 +140,10 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
        context (see the z-index: 0 on .map above — required so Leaflet's
        internal z-indexes, up to 1000 for zoom controls, stay contained
        inside .map instead of leaking into the root stacking context).
-       With both establishing stacking contexts, this z-index is what
-       keeps the sheet above the map on mobile; without it the map's
-       context would still paint after .panel in DOM order and cover it. */
-    z-index: 10;
+       The base .panel rule already sets z-index: 20 to paint above .map;
+       this override just needs to be at least that high so the mobile
+       sheet isn't accidentally lowered below the map. */
+    z-index: 20;
   }
   .panel.snap-low { height: 42dvh; }
   .panel.snap-high { height: 82dvh; }
