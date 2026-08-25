@@ -116,7 +116,7 @@ export function createList() {
         dot.className = "dot";
         dot.style.background = g.color;
         const text = document.createElement("span");
-        text.textContent = `${g.origin.city || g.origin.name} · ${g.destinations.length}`;
+        text.textContent = `${g.origin.iata} · ${g.destinations.length}`;
         tab.append(dot, text);
 
         tab.addEventListener("click", () => {

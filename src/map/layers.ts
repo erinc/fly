@@ -24,6 +24,7 @@ const ORIGINS_SOURCE = "flight-origins";
 const HIGHLIGHT_SOURCE = "flight-highlight";
 
 const ROUTES_LAYER = "flight-routes-line";
+const ROUTES_HIT_LAYER = "flight-routes-hit-area";
 const HIGHLIGHT_ROUTES_LAYER = "flight-highlight-line";
 const HIGHLIGHT_DOT_LAYER = "flight-highlight-dot";
 const DESTINATIONS_LAYER = "flight-destination-dots";
@@ -77,13 +78,12 @@ export function createReachLayer(map: MapLibreMap) {
   }, firstMainLabel);
 
   map.addLayer({
-    id: HIGHLIGHT_ROUTES_LAYER,
+    id: ROUTES_HIT_LAYER,
     type: "line",
-    source: HIGHLIGHT_SOURCE,
+    source: ROUTES_SOURCE,
     paint: {
-      "line-color": ["get", "color"],
-      "line-width": 2.8,
-      "line-opacity": 1,
+      "line-color": "rgba(0,0,0,0)",
+      "line-width": 12,
     },
     layout: { "line-cap": "round", "line-join": "round" },
   }, firstMainLabel);
@@ -99,9 +99,23 @@ export function createReachLayer(map: MapLibreMap) {
   }, firstMainLabel);
 
   map.addLayer({
+    id: HIGHLIGHT_ROUTES_LAYER,
+    type: "line",
+    source: HIGHLIGHT_SOURCE,
+    filter: ["==", ["geometry-type"], "LineString"],
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 2.8,
+      "line-opacity": 1,
+    },
+    layout: { "line-cap": "round", "line-join": "round" },
+  }, firstMainLabel);
+
+  map.addLayer({
     id: HIGHLIGHT_DOT_LAYER,
     type: "circle",
     source: HIGHLIGHT_SOURCE,
+    filter: ["==", ["geometry-type"], "Point"],
     paint: {
       "circle-radius": 5.5,
       "circle-color": ["get", "color"],
@@ -133,11 +147,14 @@ export function createReachLayer(map: MapLibreMap) {
 
   let highlightByAirport = new Map<number, Feature[]>();
   let popupData = new Map<number, { destination: Airport; legs: OriginLeg[] }>();
+  let activeAirport: number | null = null;
+  const interactiveLayers = [DESTINATIONS_LAYER, ROUTES_HIT_LAYER];
 
   const popup = new Popup({
     closeButton: false,
     closeOnClick: false,
     focusAfterOpen: false,
+    maxWidth: "none",
     offset: 9,
   });
 
@@ -145,15 +162,25 @@ export function createReachLayer(map: MapLibreMap) {
     const index = Number(event.features?.[0]?.properties?.airport);
     const data = popupData.get(index);
     if (!data) return;
+    if (activeAirport === index) return;
+    activeAirport = index;
 
     const content = document.createElement("div");
-    for (const line of tooltipLines(data.destination, data.legs)) {
-      const row = document.createElement("div");
-      row.textContent = line;
-      content.appendChild(row);
+    content.className = "route-tooltip";
+    const lines = tooltipLines(data.destination, data.legs);
+    const title = document.createElement("span");
+    title.className = "route-tooltip-title";
+    title.textContent = lines[0] ?? "";
+    content.appendChild(title);
+    for (const line of lines.slice(1)) {
+      const leg = document.createElement("span");
+      leg.className = "route-tooltip-leg";
+      leg.textContent = line;
+      content.appendChild(leg);
     }
 
     map.getCanvas().style.cursor = "pointer";
+    map.setFilter(DESTINATIONS_LAYER, ["==", ["get", "airport"], index]);
     void source(map, HIGHLIGHT_SOURCE).setData({
       type: "FeatureCollection",
       features: highlightByAirport.get(index) ?? [],
@@ -165,13 +192,15 @@ export function createReachLayer(map: MapLibreMap) {
   };
 
   const hideDestination = () => {
+    activeAirport = null;
     map.getCanvas().style.cursor = "";
+    map.setFilter(DESTINATIONS_LAYER, null);
     popup.remove();
     void source(map, HIGHLIGHT_SOURCE).setData(emptyCollection());
   };
 
-  map.on("mouseenter", DESTINATIONS_LAYER, showDestination);
-  map.on("mouseleave", DESTINATIONS_LAYER, hideDestination);
+  map.on("mousemove", interactiveLayers, showDestination);
+  map.on("mouseleave", interactiveLayers, hideDestination);
 
   function update(layers: OriginLayer[], airports: Airport[]): void {
     const routeFeatures: Feature[] = [];
@@ -265,15 +294,16 @@ export function createReachLayer(map: MapLibreMap) {
   return {
     update,
     remove() {
-      map.off("mouseenter", DESTINATIONS_LAYER, showDestination);
-      map.off("mouseleave", DESTINATIONS_LAYER, hideDestination);
+      map.off("mousemove", interactiveLayers, showDestination);
+      map.off("mouseleave", interactiveLayers, hideDestination);
       popup.remove();
       for (const id of [
         ORIGINS_LAYER,
         ORIGIN_RING_LAYER,
         HIGHLIGHT_DOT_LAYER,
-        DESTINATIONS_LAYER,
         HIGHLIGHT_ROUTES_LAYER,
+        DESTINATIONS_LAYER,
+        ROUTES_HIT_LAYER,
         ROUTES_LAYER,
       ]) {
         if (map.getLayer(id)) map.removeLayer(id);

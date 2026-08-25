@@ -11,23 +11,23 @@ test("first line names the city and code", () => {
   expect(tooltipLines(BCN, [{ iata: "BER", minutes: 125 }])[0]).toBe("Barcelona (BCN)");
 });
 
-test("one line per reaching origin, with the flight time", () => {
+test("shows the flight time without the origin code", () => {
   expect(tooltipLines(BCN, [{ iata: "BER", minutes: 125 }])).toEqual([
     "Barcelona (BCN)",
-    "BER · 2h 05m",
+    "2h 05m",
   ]);
 });
 
-test("lists every reaching origin", () => {
+test("labels durations when multiple origins reach the destination", () => {
   expect(tooltipLines(BCN, [
     { iata: "BER", minutes: 125 },
     { iata: "LIS", minutes: 110 },
     { iata: "IST", minutes: 200 },
   ])).toEqual([
     "Barcelona (BCN)",
-    "BER · 2h 05m",
-    "LIS · 1h 50m",
-    "IST · 3h 20m",
+    "BER 2h 05m",
+    "LIS 1h 50m",
+    "IST 3h 20m",
   ]);
 });
 

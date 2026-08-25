@@ -1,6 +1,6 @@
 import { MAX_AIRPORTS } from "../theme.js";
 
-export const MIN_MINUTES = 30;
+export const MIN_MINUTES = 60;
 export const MAX_MINUTES = 480;
 export const STEP_MINUTES = 15;
 

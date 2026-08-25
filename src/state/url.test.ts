@@ -56,7 +56,7 @@ test("DEFAULT_STATE has no airports", () => {
   expect(DEFAULT_STATE.airports).toEqual([]);
 });
 
-// Minutes tests (unchanged)
+// Minutes tests
 test("clamps the budget below the minimum", () => {
   expect(parseState("?t=5").minutes).toBe(MIN_MINUTES);
 });

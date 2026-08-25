@@ -17,15 +17,23 @@ export function createAirportSelector(opts: {
 
   const field = document.createElement("div");
   field.className = "picker";
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "search-icon";
+  searchIcon.setAttribute("aria-hidden", "true");
   const input = document.createElement("input");
   input.type = "search";
   input.autocomplete = "off";
-  input.placeholder = "Add an airport";
-  input.setAttribute("aria-label", "Add an airport");
+  input.placeholder = "Search airport…";
+  input.setAttribute("aria-label", "Search airport");
   const results = document.createElement("ul");
   results.className = "results";
   results.hidden = true;
-  field.append(input, results);
+  field.append(searchIcon, input, results);
+  field.addEventListener("mousedown", (event) => {
+    if (event.target !== field && event.target !== searchIcon) return;
+    event.preventDefault();
+    input.focus();
+  });
 
   const note = document.createElement("p");
   note.className = "note";
@@ -41,12 +49,14 @@ export function createAirportSelector(opts: {
     chips.replaceChildren();
     selected.forEach((code, i) => {
       const ap = opts.airports.find((a) => a.iata === code);
+      const color = originColor(i);
       const chip = document.createElement("span");
       chip.className = "chip";
+      chip.style.setProperty("--chip-color", color);
 
       const dot = document.createElement("i");
       dot.className = "dot";
-      dot.style.background = originColor(i);
+      dot.style.background = color;
 
       const label = document.createElement("span");
       label.textContent = ap ? `${ap.iata} · ${ap.city || ap.name}` : code;
@@ -67,6 +77,7 @@ export function createAirportSelector(opts: {
 
     const full = selected.length >= MAX_AIRPORTS;
     input.disabled = full;
+    field.classList.toggle("disabled", full);
     note.hidden = !full;
     if (full) close();
   }
@@ -127,7 +138,7 @@ export function createAirportSelector(opts: {
 
   input.addEventListener("blur", () => setTimeout(close, 120));
 
-  el.append(chips, field, note);
+  el.append(field, chips, note);
   renderChips();
 
   return {

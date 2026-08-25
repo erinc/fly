@@ -1,4 +1,5 @@
 // src/main.ts
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 import { loadDataset } from "./data/bundle.js";
 import { reachable, type Reachable } from "./reach/query.js";
@@ -44,9 +45,10 @@ function normalise(s: AppState): AppState {
 const mapEl = document.createElement("div");
 mapEl.className = "map";
 
-const brand = document.createElement("div");
+const brand = document.createElement("a");
 brand.className = "brand";
-brand.textContent = "fly.eric.fun";
+brand.href = "/";
+brand.textContent = "✈️ fly.eric.fun";
 
 const selector = createAirportSelector({
   airports: dataset.airports,
@@ -70,11 +72,7 @@ const toggle = createToggle({
 
 const list = createList();
 
-const footer = document.createElement("div");
-footer.className = "footer";
-footer.textContent = "Route data from Wikipedia (CC BY-SA 4.0) · Airports from OurAirports";
-
-const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el, footer]);
+const panel = createPanel([brand, selector.el, slider.el, toggle.el, list.el]);
 app.replaceChildren(panel, mapEl);
 
 let map: Awaited<ReturnType<typeof createMap>>;

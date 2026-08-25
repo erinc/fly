@@ -1,10 +1,8 @@
 import {
   AttributionControl,
   Map as MapLibreMap,
-  NavigationControl,
   setWorkerUrl,
 } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 // MapLibre 6 ships its vector-tile worker separately. Vite must bundle that
@@ -37,8 +35,22 @@ export async function createMap(container: HTMLElement): Promise<MapLibreMap> {
   });
 
   map.touchZoomRotate.disableRotation();
-  map.addControl(new NavigationControl({ showCompass: false }), "top-left");
   map.addControl(new AttributionControl({ compact: true }), "bottom-right");
+
+  // The attribution starts empty, then MapLibre expands it when the CARTO
+  // source metadata arrives. Collapse it immediately after that first update.
+  const collapseInitialAttribution = () => {
+    const attribution = container.querySelector(
+      ".maplibregl-ctrl-attrib.maplibregl-compact",
+    );
+    if (!attribution) return;
+
+    attribution.classList.remove("maplibregl-compact-show");
+    map.off("styledata", collapseInitialAttribution);
+    map.off("sourcedata", collapseInitialAttribution);
+  };
+  map.on("styledata", collapseInitialAttribution);
+  map.on("sourcedata", collapseInitialAttribution);
 
   await new Promise<void>((resolve, reject) => {
     const ready = () => {
