@@ -57,7 +57,8 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
   overflow: hidden; display: flex; flex-direction: column; gap: 10px;
   position: relative; z-index: 20;
 }
-.drawer-header, .panel-trigger, .panel-backdrop, .mobile-map-slider { display: none; }
+.drawer-header, .panel-trigger, .panel-backdrop { display: none; }
+.slider.mobile-map-slider { display: none; }
 
 .brand { color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; text-decoration: none; }
 
@@ -156,7 +157,7 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
     border: 0; background: rgba(20,30,45,.16); opacity: 0;
     pointer-events: none; transition: opacity .22s ease; z-index: 31; }
   .panel-backdrop.is-visible { opacity: 1; pointer-events: auto; }
-  .mobile-map-slider {
+  .slider.mobile-map-slider {
     display: grid; position: fixed;
     left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
