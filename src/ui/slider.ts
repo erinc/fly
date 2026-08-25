@@ -1,6 +1,6 @@
 // src/ui/slider.ts
 import { MAX_MINUTES, MIN_MINUTES, STEP_MINUTES } from "../state/url.js";
-import { formatDuration } from "./format.js";
+import { formatFlightTimeLimit } from "./format.js";
 
 export function createSlider(opts: {
   value: number;
@@ -25,7 +25,12 @@ export function createSlider(opts: {
 
   const readout = document.createElement("div");
   readout.className = "readout";
-  readout.textContent = formatDuration(opts.value);
+  const updateReadout = (minutes: number) => {
+    const text = formatFlightTimeLimit(minutes);
+    readout.textContent = text;
+    input.setAttribute("aria-valuetext", text);
+  };
+  updateReadout(opts.value);
 
   // Fires on every drag frame; the reach query is sub-millisecond so no debounce.
   // The URL is not updated here — history.replaceState on every frame can hit
@@ -33,7 +38,7 @@ export function createSlider(opts: {
   // happens on "change" instead, once the drag (or keyboard step) settles.
   input.addEventListener("input", () => {
     const m = Number(input.value);
-    readout.textContent = formatDuration(m);
+    updateReadout(m);
     opts.onInput(m);
   });
   input.addEventListener("change", () => {
@@ -43,6 +48,6 @@ export function createSlider(opts: {
   el.append(label, input, readout);
   return {
     el,
-    setValue(m: number) { input.value = String(m); readout.textContent = formatDuration(m); },
+    setValue(m: number) { input.value = String(m); updateReadout(m); },
   };
 }

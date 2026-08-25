@@ -1,5 +1,12 @@
 import { expect, test } from "vitest";
-import { DEFAULT_STATE, MAX_MINUTES, MIN_MINUTES, parseState, toSearch } from "./url.js";
+import {
+  DEFAULT_STATE,
+  MAX_MINUTES,
+  MIN_MINUTES,
+  parseState,
+  routeLimit,
+  toSearch,
+} from "./url.js";
 
 // Airport tests
 test("parses a comma-separated airport list", () => {
@@ -63,6 +70,12 @@ test("clamps the budget below the minimum", () => {
 
 test("clamps the budget above the maximum", () => {
   expect(parseState("?t=99999").minutes).toBe(MAX_MINUTES);
+});
+
+test("uses the 12-hour endpoint as an all-routes sentinel", () => {
+  expect(MAX_MINUTES).toBe(720);
+  expect(routeLimit(MAX_MINUTES - 15)).toBe(705);
+  expect(routeLimit(MAX_MINUTES)).toBe(Number.POSITIVE_INFINITY);
 });
 
 test("snaps the budget to the 15-minute step", () => {

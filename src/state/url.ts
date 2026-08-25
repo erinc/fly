@@ -1,7 +1,7 @@
 import { MAX_AIRPORTS } from "../theme.js";
 
 export const MIN_MINUTES = 60;
-export const MAX_MINUTES = 480;
+export const MAX_MINUTES = 720;
 export const STEP_MINUTES = 15;
 
 export type AppState = {
@@ -25,6 +25,11 @@ function code(raw: string | null | undefined): string | null {
 export function clampMinutes(n: number): number {
   const snapped = Math.round(n / STEP_MINUTES) * STEP_MINUTES;
   return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, snapped));
+}
+
+/** The final slider position is an open-ended "all routes" sentinel. */
+export function routeLimit(minutes: number): number {
+  return minutes >= MAX_MINUTES ? Number.POSITIVE_INFINITY : minutes;
 }
 
 export function parseState(search: string): AppState {

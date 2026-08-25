@@ -12,7 +12,7 @@ import { createToggle } from "./ui/toggle.js";
 import { createList, type ListGroup } from "./ui/list.js";
 import { createPanel } from "./ui/panel.js";
 import { originColor, MAX_AIRPORTS } from "./theme.js";
-import { parseState, toSearch, type AppState } from "./state/url.js";
+import { parseState, routeLimit, toSearch, type AppState } from "./state/url.js";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -63,32 +63,37 @@ const selector = createAirportSelector({
 
 let slider: ReturnType<typeof createSlider>;
 let mapSlider: ReturnType<typeof createSlider>;
+let drawRequest: number | null = null;
 
-const updateMinutes = (minutes: number) => {
+const updateMinutes = (
+  minutes: number,
+  peer: ReturnType<typeof createSlider>,
+) => {
   state = { ...state, minutes };
-  slider.setValue(minutes);
-  mapSlider.setValue(minutes);
-  draw();
+  peer.setValue(minutes);
+  scheduleDraw();
 };
 
-const saveMinutes = (minutes: number) => {
+const saveMinutes = (
+  minutes: number,
+  peer: ReturnType<typeof createSlider>,
+) => {
   state = { ...state, minutes };
-  slider.setValue(minutes);
-  mapSlider.setValue(minutes);
+  peer.setValue(minutes);
   pushUrl();
 };
 
 slider = createSlider({
   value: state.minutes,
-  onInput: updateMinutes,
-  onChange: saveMinutes,
+  onInput: (minutes) => updateMinutes(minutes, mapSlider),
+  onChange: (minutes) => saveMinutes(minutes, mapSlider),
 });
 
 mapSlider = createSlider({
   value: state.minutes,
   label: "Flight time",
-  onInput: updateMinutes,
-  onChange: saveMinutes,
+  onInput: (minutes) => updateMinutes(minutes, slider),
+  onChange: (minutes) => saveMinutes(minutes, slider),
 });
 mapSlider.el.classList.add("mobile-map-slider");
 
@@ -129,7 +134,12 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
     const idx = dataset.index.get(code);
     if (idx === undefined) return;
     const origin = dataset.airports[idx]!;
-    const destinations: Reachable[] = reachable(dataset, idx, state.minutes, opts);
+    const destinations: Reachable[] = reachable(
+      dataset,
+      idx,
+      routeLimit(state.minutes),
+      opts,
+    );
     const color = originColor(i);
     layers.push({ origin, destinations, color });
     listGroups.push({ origin, color, destinations });
@@ -141,7 +151,19 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
  *  don't run reachable() a second time over the same origins. */
 let lastLayers: OriginLayer[] = [];
 
+function scheduleDraw(): void {
+  if (drawRequest !== null) return;
+  drawRequest = window.requestAnimationFrame(() => {
+    drawRequest = null;
+    draw();
+  });
+}
+
 function draw(): void {
+  if (drawRequest !== null) {
+    window.cancelAnimationFrame(drawRequest);
+    drawRequest = null;
+  }
   const { layers, listGroups } = groups();
   lastLayers = layers;
   reachLayer.update(layers, dataset.airports);

@@ -94,7 +94,8 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .label { grid-column: 1 / -1; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
   color: var(--muted); margin: 12px 0 4px; }
 .slider input[type="range"] { width: 100%; accent-color: var(--ink); }
-.readout { font-size: 17px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
+.readout { width: 4.5em; font-size: 17px; font-weight: 600; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 .toggle { display: flex; align-items: center; gap: 8px; font-size: 13px;
   margin: 8px 0 0; cursor: pointer; }
