@@ -77,12 +77,16 @@ export function createAirportSelector(opts: {
   }
 
   const choose = (a: Airport) => {
-    if (!selected.includes(a.iata) && selected.length < MAX_AIRPORTS) {
-      selected.push(a.iata);
-    }
+    // sync() fires onChange, which triggers a map auto-focus in main.ts.
+    // Only call it when the selection actually changes — re-selecting an
+    // already-selected airport (or trying to add past the cap) must be a
+    // no-op, or the auto-focus yanks the view away from wherever the user
+    // had panned even though nothing changed.
+    const changed = !selected.includes(a.iata) && selected.length < MAX_AIRPORTS;
+    if (changed) selected.push(a.iata);
     input.value = "";
     close();
-    sync();
+    if (changed) sync();
   };
 
   const render = () => {
