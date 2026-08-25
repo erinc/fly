@@ -57,17 +57,33 @@ export function parseDestinations(
 
     const lineHasCharterWord = /charter/i.test(line);
 
-    for (const m of line.matchAll(WIKILINK)) {
+    // A wikitext line often lists several destinations in one cell, each
+    // with its own trailing "(begins ...)" / "(ends ...)" annotation. begins
+    // and ends *remove* routes, so matching them against the whole line
+    // would let one destination's future-dated annotation silently drop
+    // every other destination on the same line — a real data-loss bug.
+    // Scope each match to the span from that wikilink up to the start of
+    // the next wikilink on the line (or end of line for the last one), so
+    // an annotation only affects the destination it actually belongs to.
+    // seasonal, in contrast, only *labels* a route rather than removing it,
+    // so an over-broad (line-scoped) match there is merely a cosmetic flag
+    // error, not data loss — left as-is deliberately.
+    const matches = [...line.matchAll(WIKILINK)];
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i]!;
       const title = (m[1] ?? "").trim();
       const iata = titleToIata[title];
       if (!iata) continue;
 
-      const begins = /begins\s+([0-9]{1,2}\s+\w+\s+[0-9]{4})/i.exec(line);
+      const windowEnd = matches[i + 1]?.index ?? line.length;
+      const window = line.slice(m.index, windowEnd);
+
+      const begins = /begins\s+([0-9]{1,2}\s+\w+\s+[0-9]{4})/i.exec(window);
       if (begins) {
         const d = parseDate(begins[1] ?? "");
         if (d && d > now) continue;
       }
-      const ends = /ends\s+([0-9]{1,2}\s+\w+\s+[0-9]{4})/i.exec(line);
+      const ends = /ends\s+([0-9]{1,2}\s+\w+\s+[0-9]{4})/i.exec(window);
       if (ends) {
         const d = parseDate(ends[1] ?? "");
         if (d && d < now) continue;

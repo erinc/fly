@@ -16,6 +16,7 @@ const TITLES: Record<string, string> = {
   "Zurich Airport": "ZRH",
   "Frankfurt Airport": "FRA",
   "Munich Airport": "MUC",
+  "Al Maktoum International Airport": "DWC",
   "Erbil International Airport": "EBL",
   "Bethel Airport": "BET",
 };
@@ -30,8 +31,14 @@ test("BER: finds a large destinations section with seasonal markers", () => {
 
 test("BER: resolves known current destinations", () => {
   const codes = parseDestinations(load("BER"), TITLES).map((d) => d.iata);
-  // EBL (FlyErbil, an airline that only began operating in 2023) is a route
-  // that postdates BER's 2020 opening; its presence proves the data is current.
+  // DWC (Al Maktoum International Airport) is a post-2024 route; its
+  // presence proves the data is current. It shares a wikitext line with an
+  // unrelated future-dated "(begins ...)" annotation for a different
+  // destination, so this also guards the per-wikilink begins/ends scoping
+  // in parseDestinations (see destinations.ts) rather than line-scoping.
+  expect(codes).toContain("DWC");
+  // EBL (FlyErbil, an airline that only began operating in 2023) is a
+  // further route that postdates BER's 2020 opening.
   expect(codes).toContain("EBL");
   expect(codes).toContain("BCN");
 });

@@ -64,6 +64,14 @@ test("excludes routes that have already ended", () => {
   expect(parseDestinations(wt, TITLES, NOW)).toEqual([]);
 });
 
+test("a future 'begins' annotation on one destination does not exclude another destination on the same line", () => {
+  const wt = `== Airlines and destinations ==
+| [[British Airways]] | [[Heathrow Airport]], [[Faro Airport]] (begins 1 December 2026)`;
+  const codes = parseDestinations(wt, TITLES, NOW).map((d) => d.iata);
+  expect(codes).toContain("LHR");
+  expect(codes).not.toContain("FAO");
+});
+
 test("deduplicates a destination served by several airlines", () => {
   const wt = `== Airlines and destinations ==
 | [[British Airways]] | [[Faro Airport]]
