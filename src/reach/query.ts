@@ -29,8 +29,3 @@ export function reachable(
   }
   return out.sort((p, q) => p.minutes - q.minutes);
 }
-
-export function sharedDestinations(a: Reachable[], b: Reachable[]): Set<number> {
-  const inB = new Set(b.map((x) => x.airport));
-  return new Set(a.map((x) => x.airport).filter((x) => inB.has(x)));
-}

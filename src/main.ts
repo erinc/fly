@@ -1,7 +1,7 @@
 // src/main.ts
 import "./styles.css";
 import { loadDataset } from "./data/bundle.js";
-import { reachable, sharedDestinations, type Reachable } from "./reach/query.js";
+import { reachable, type Reachable } from "./reach/query.js";
 import { COLORS, createProjection } from "./geo/projection.js";
 import { drawBasemap } from "./render/basemap.js";
 import { drawReach, type Layer } from "./render/arcs.js";
@@ -101,7 +101,7 @@ function currentLayers(): { layers: Layer[]; ra: Reachable[]; rb: Reachable[]; s
   const opts = { yearRoundOnly: state.yearRoundOnly };
   const ra = ia === undefined ? [] : reachable(dataset, ia, state.minutes, opts);
   const rb = ib === undefined ? [] : reachable(dataset, ib, state.minutes, opts);
-  const shared = ia !== undefined && ib !== undefined ? sharedDestinations(ra, rb) : new Set<number>();
+  const shared = new Set<number>();
 
   const layers: Layer[] = [];
   if (ia !== undefined) layers.push({ origin: dataset.airports[ia]!, destinations: ra, color: COLORS.originA });

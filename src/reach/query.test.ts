@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { decodeRoutes, encodeRoutes, FLAG_SEASONAL } from "../data/format.js";
 import { buildAdjacency, type Dataset } from "../data/bundle.js";
-import { reachable, sharedDestinations } from "./query.js";
+import { reachable } from "./query.js";
 
 /** 0=BER 1=LIS 2=BCN 3=SYD */
 function fixture(): Dataset {
@@ -57,14 +57,4 @@ test("yearRoundOnly drops seasonal routes", () => {
 test("results are sorted by duration", () => {
   const mins = reachable(fixture(), 0, 9999).map((x) => x.minutes);
   expect(mins).toEqual([...mins].sort((p, q) => p - q));
-});
-
-test("sharedDestinations intersects two reach sets", () => {
-  const d = fixture();
-  expect([...sharedDestinations(reachable(d, 0, 180), reachable(d, 1, 180))]).toEqual([2]);
-});
-
-test("sharedDestinations is empty when nothing overlaps", () => {
-  const d = fixture();
-  expect(sharedDestinations(reachable(d, 0, 100), reachable(d, 1, 180)).size).toBe(0);
 });
