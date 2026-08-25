@@ -5,7 +5,8 @@ import { countryFlag } from "./flag.js";
 import { formatDuration } from "./format.js";
 
 export type ListGroup = {
-  origin: Airport;
+  id: string;
+  codes: string[];
   color: string;
   destinations: Reachable[];
 };
@@ -16,10 +17,10 @@ export function createList() {
   const el = document.createElement("div");
   el.className = "list";
 
-  // Active tab, tracked by IATA code (not index) so it survives re-renders
+  // Active tab, tracked by selection id (not index) so it survives re-renders
   // triggered by the slider or the year-round toggle without jumping back
   // to the first tab.
-  let activeIata: string | null = null;
+  let activeId: string | null = null;
   let lastArgs: { airports: Airport[]; groups: ListGroup[] } | null = null;
 
   function destinationRow(r: Reachable, airports: Airport[]) {
@@ -70,9 +71,9 @@ export function createList() {
     }
   }
 
-  function activate(iata: string) {
+  function activate(id: string) {
     if (!lastArgs) return;
-    activeIata = iata;
+    activeId = id;
     render(lastArgs);
   }
 
@@ -90,8 +91,8 @@ export function createList() {
 
     // Resolve the active group: keep the current selection if it's still
     // present, otherwise fall back to the first remaining group.
-    const activeGroup = groups.find((g) => g.origin.iata === activeIata) ?? groups[0]!;
-    activeIata = activeGroup.origin.iata;
+    const activeGroup = groups.find((g) => g.id === activeId) ?? groups[0]!;
+    activeId = activeGroup.id;
 
     const tablist = document.createElement("div");
     tablist.className = "tabs";
@@ -100,8 +101,8 @@ export function createList() {
     const tabButtons: HTMLButtonElement[] = [];
 
     groups.forEach((g, i) => {
-      const tabId = `list-tab-${g.origin.iata}`;
-      const isActive = g.origin.iata === activeIata;
+      const tabId = `list-tab-${g.id}`;
+      const isActive = g.id === activeId;
 
       const tab = document.createElement("button");
       tab.type = "button";
@@ -116,11 +117,11 @@ export function createList() {
       dot.className = "dot";
       dot.style.background = g.color;
       const text = document.createElement("span");
-      text.textContent = `${g.origin.iata} · ${g.destinations.length}`;
+      text.textContent = `${g.codes.join("+")} · ${g.destinations.length}`;
       tab.append(dot, text);
 
       tab.addEventListener("click", () => {
-        if (activeIata !== g.origin.iata) activate(g.origin.iata);
+        if (activeId !== g.id) activate(g.id);
       });
 
       tab.addEventListener("keydown", (ev) => {
@@ -130,7 +131,7 @@ export function createList() {
         const nextIndex = (i + delta + groups.length) % groups.length;
         const nextGroup = groups[nextIndex];
         if (!nextGroup) return;
-        activate(nextGroup.origin.iata);
+        activate(nextGroup.id);
         tabButtons[nextIndex]?.focus();
       });
 
@@ -144,7 +145,7 @@ export function createList() {
     panel.id = PANEL_ID;
     panel.className = "tabpanel";
     panel.setAttribute("role", "tabpanel");
-    panel.setAttribute("aria-labelledby", `list-tab-${activeIata}`);
+    panel.setAttribute("aria-labelledby", `list-tab-${activeId}`);
     renderPanelBody(panel, activeGroup, airports);
     el.appendChild(panel);
   }

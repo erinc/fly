@@ -5,8 +5,13 @@ export type Airport = {
   lat: number; lon: number; size: string;
 };
 
+export type Metro = {
+  id: string; city: string; country: string; codes: string[];
+};
+
 export type Dataset = {
   airports: Airport[];
+  metros: Metro[];
   index: Map<string, number>;
   routes: RouteTable;
   /** adjacency[airportIndex] = route record indices touching that airport */
@@ -14,12 +19,18 @@ export type Dataset = {
 };
 
 type Tuple = [string, string, string, string, number, number, string];
+type MetroTuple = [string, string, string, string[]];
 
 export function parseAirports(json: unknown): Airport[] {
   const rows = (json as { airports?: Tuple[] }).airports ?? [];
   return rows.map(([iata, name, city, country, lat, lon, size]) => ({
     iata, name, city, country, lat, lon, size,
   }));
+}
+
+export function parseMetros(json: unknown): Metro[] {
+  const rows = (json as { metros?: MetroTuple[] }).metros ?? [];
+  return rows.map(([id, city, country, codes]) => ({ id, city, country, codes }));
 }
 
 export function buildAdjacency(count: number, routes: RouteTable): number[][] {
@@ -37,9 +48,11 @@ export async function loadDataset(): Promise<Dataset> {
     fetch("/routes.bin").then((r) => r.arrayBuffer()),
   ]);
   const airports = parseAirports(airportsJson);
+  const metros = parseMetros(airportsJson);
   const routes = decodeRoutes(routesBuf);
   return {
     airports,
+    metros,
     index: new Map(airports.map((a, i) => [a.iata, i])),
     routes,
     adjacency: buildAdjacency(airports.length, routes),

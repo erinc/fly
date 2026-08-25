@@ -3,6 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 import { loadDataset } from "./data/bundle.js";
 import { reachable, type Reachable } from "./reach/query.js";
+import { mergeReachable } from "./reach/merge.js";
 import { createMap } from "./map/map.js";
 import { createReachLayer, type OriginLayer } from "./map/layers.js";
 import { unwrappedBounds } from "./map/bounds.js";
@@ -13,6 +14,11 @@ import { createList, type ListGroup } from "./ui/list.js";
 import { createPanel } from "./ui/panel.js";
 import { originColor, MAX_AIRPORTS } from "./theme.js";
 import { parseState, routeLimit, toSearch, type AppState } from "./state/url.js";
+import {
+  flattenSelections,
+  selectionCodes,
+  selectionsFromCodes,
+} from "./data/selections.js";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -36,9 +42,9 @@ let state: AppState = normalise(parseState(location.search));
 
 /** Drop codes the dataset doesn't know, then cap. */
 function normalise(s: AppState): AppState {
-  const airports = s.airports
-    .filter((c) => dataset.index.has(c))
-    .slice(0, MAX_AIRPORTS);
+  const validCodes = s.airports.filter((c) => dataset.index.has(c));
+  const selections = selectionsFromCodes(validCodes, dataset.metros).slice(0, MAX_AIRPORTS);
+  const airports = flattenSelections(selections);
   return { ...s, airports };
 }
 
@@ -54,6 +60,7 @@ let panel: ReturnType<typeof createPanel>;
 
 const selector = createAirportSelector({
   airports: dataset.airports,
+  metros: dataset.metros,
   onChange: (codes) => {
     state = { ...state, airports: codes };
     commit({ refocus: true });
@@ -130,19 +137,34 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
   const opts = { yearRoundOnly: state.yearRoundOnly };
   const layers: OriginLayer[] = [];
   const listGroups: ListGroup[] = [];
-  state.airports.forEach((code, i) => {
-    const idx = dataset.index.get(code);
-    if (idx === undefined) return;
-    const origin = dataset.airports[idx]!;
-    const destinations: Reachable[] = reachable(
-      dataset,
-      idx,
-      routeLimit(state.minutes),
-      opts,
-    );
+  const selections = selectionsFromCodes(state.airports, dataset.metros);
+  selections.forEach((selection, i) => {
+    const codes = selectionCodes(selection);
     const color = originColor(i);
-    layers.push({ origin, destinations, color });
-    listGroups.push({ origin, color, destinations });
+    const memberDestinations: Reachable[][] = [];
+    const originIndices = new Set<number>();
+    for (const code of codes) {
+      const idx = dataset.index.get(code);
+      if (idx === undefined) continue;
+      originIndices.add(idx);
+      const origin = dataset.airports[idx]!;
+      const destinations = reachable(
+        dataset,
+        idx,
+        routeLimit(state.minutes),
+        opts,
+      );
+      memberDestinations.push(destinations);
+      layers.push({ origin, destinations, color });
+    }
+    const firstOrigin = dataset.airports[dataset.index.get(codes[0]!) ?? -1];
+    if (!firstOrigin) return;
+    listGroups.push({
+      id: selection.kind === "metro" ? selection.metro.id : firstOrigin.iata,
+      codes,
+      color,
+      destinations: mergeReachable(memberDestinations, originIndices),
+    });
   });
   return { layers, listGroups };
 }

@@ -16,6 +16,7 @@ function fixture(): Dataset {
   }));
   return {
     airports,
+    metros: [],
     index: new Map(airports.map((a, i) => [a.iata, i])),
     routes,
     adjacency: buildAdjacency(4, routes),

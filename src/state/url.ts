@@ -1,5 +1,3 @@
-import { MAX_AIRPORTS } from "../theme.js";
-
 export const MIN_MINUTES = 60;
 export const MAX_MINUTES = 720;
 export const STEP_MINUTES = 15;
@@ -41,7 +39,7 @@ export function parseState(search: string): AppState {
   const airports: string[] = [];
   for (const entry of raw) {
     const c = code(entry);
-    if (c && !airports.includes(c) && airports.length < MAX_AIRPORTS) airports.push(c);
+    if (c && !airports.includes(c)) airports.push(c);
   }
 
   const rawT = p.get("t");

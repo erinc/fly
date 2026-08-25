@@ -33,8 +33,8 @@ test("drops duplicates, keeping first occurrence", () => {
   expect(parseState("?a=BER,LIS,BER").airports).toEqual(["BER", "LIS"]);
 });
 
-test("caps at three airports", () => {
-  expect(parseState("?a=BER,LIS,IST,BKK,LHR").airports).toEqual(["BER", "LIS", "IST"]);
+test("preserves codes until the dataset can group them into selections", () => {
+  expect(parseState("?a=BER,LIS,IST,BKK,LHR").airports).toEqual(["BER", "LIS", "IST", "BKK", "LHR"]);
 });
 
 test("folds the legacy two-parameter form", () => {

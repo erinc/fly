@@ -1,7 +1,7 @@
 // src/ui/search.test.ts
 import { expect, test } from "vitest";
-import { searchAirports } from "./search.js";
-import type { Airport } from "../data/bundle.js";
+import { searchAirports, searchOptions } from "./search.js";
+import type { Airport, Metro } from "../data/bundle.js";
 
 const ap = (iata: string, name: string, city: string, country: string): Airport =>
   ({ iata, name, city, country, lat: 0, lon: 0, size: "large" });
@@ -13,6 +13,13 @@ const AIRPORTS = [
   ap("LGW", "Gatwick Airport", "London", "GB"),
   ap("TXL", "Berlin Tegel", "Berlin", "DE"),
 ];
+
+const LONDON: Metro = {
+  id: "london-gb-lgw-lhr",
+  city: "London",
+  country: "GB",
+  codes: ["LGW", "LHR"],
+};
 
 test("an exact IATA match ranks first", () => {
   expect(searchAirports(AIRPORTS, "BER")[0]?.iata).toBe("BER");
@@ -46,4 +53,18 @@ test("respects the result limit", () => {
 
 test("an unmatched query returns nothing", () => {
   expect(searchAirports(AIRPORTS, "zzzzz")).toEqual([]);
+});
+
+test("puts an all-airports option before individual airports for a city search", () => {
+  const options = searchOptions(AIRPORTS, [LONDON], "London");
+  expect(options[0]).toEqual({ kind: "metro", metro: LONDON });
+  expect(options.filter((o) => o.kind === "airport").map((o) => o.airport.iata))
+    .toEqual(expect.arrayContaining(["LHR", "LGW"]));
+});
+
+test("keeps an exact airport first for an IATA search", () => {
+  expect(searchOptions(AIRPORTS, [LONDON], "LHR")[0]).toEqual({
+    kind: "airport",
+    airport: AIRPORTS[2],
+  });
 });

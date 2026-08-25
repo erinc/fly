@@ -1,11 +1,18 @@
 import { expect, test } from "vitest";
 import { encodeRoutes, decodeRoutes } from "./format.js";
-import { buildAdjacency, parseAirports } from "./bundle.js";
+import { buildAdjacency, parseAirports, parseMetros } from "./bundle.js";
 
 test("parses the compact airport tuple format", () => {
   const json = { airports: [["LHR", "Heathrow Airport", "London", "GB", 51.47, -0.46, "large"]] };
   expect(parseAirports(json)).toEqual([
     { iata: "LHR", name: "Heathrow Airport", city: "London", country: "GB", lat: 51.47, lon: -0.46, size: "large" },
+  ]);
+});
+
+test("parses generated metro groups", () => {
+  const json = { metros: [["bangkok-th-bkk-dmk", "Bangkok", "TH", ["BKK", "DMK"]]] };
+  expect(parseMetros(json)).toEqual([
+    { id: "bangkok-th-bkk-dmk", city: "Bangkok", country: "TH", codes: ["BKK", "DMK"] },
   ]);
 });
 

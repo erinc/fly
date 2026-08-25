@@ -6,6 +6,7 @@ import { parseAirportsCsv, type AirportRow } from "./sources/ourairports.js";
 import type { Destination } from "./parse/destinations.js";
 import { resolveCityName } from "./city-name.js";
 import { collectPairs } from "./pairs.js";
+import { generateMetros } from "./metros.js";
 
 const RAW = new URL("../data/raw/", import.meta.url);
 const CACHE = new URL("../data/cache/", import.meta.url);
@@ -75,6 +76,11 @@ for (const p of pairs.values()) {
 }
 const airports = [...used].sort().map((iata) => byIata.get(iata)!);
 const index = new Map(airports.map((a, i) => [a.iata, i]));
+const displayAirports = airports.map((a) => ({
+  ...a,
+  city: resolveCityName(a.iata, a.city),
+}));
+const metros = generateMetros(displayAirports);
 
 for (const a of airports) {
   if (!Number.isFinite(a.lat) || !Number.isFinite(a.lon)) fail(`${a.iata} has no coordinates`);
@@ -123,16 +129,17 @@ writeFileSync(
   new URL("./airports.json", PUBLIC),
   JSON.stringify({
     generatedAt: new Date().toISOString(),
-    airports: airports.map((a) => [
+    airports: displayAirports.map((a) => [
       a.iata,
       a.name,
-      resolveCityName(a.iata, a.city),
+      a.city,
       a.country,
       a.lat,
       a.lon,
       a.size,
     ]),
+    metros: metros.map((m) => [m.id, m.city, m.country, m.codes]),
   }),
 );
 writeFileSync(new URL("./routes.bin", PUBLIC), Buffer.from(encodeRoutes(routes)));
-console.log(`wrote ${airports.length} airports, ${routes.length} routes`);
+console.log(`wrote ${airports.length} airports, ${metros.length} metro groups, ${routes.length} routes`);

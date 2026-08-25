@@ -1,7 +1,7 @@
 # fly.eric.fun
 
 A minimal world map showing every nonstop destination reachable from up to three
-airports within a given flight time.
+airports or metro areas within a given flight time.
 
 ## Development
 
@@ -27,7 +27,8 @@ npm run crawl -- IST,BKK
 npm run bundle
 ```
 
-The current dataset has **3,615 airports** and **32,276 route pairs**;
+The current dataset has **3,615 airports**, **69 generated metro groups**, and
+**32,276 route pairs**;
 `public/routes.bin` is about 226 KB. Of crawled Wikipedia articles, **86.5%**
 yield a destinations section — the shortfall from higher estimates is real,
 not a parser bug: a number of small airports simply have no destinations
@@ -66,8 +67,9 @@ further detail.
 - **Interactive map.** MapLibre renders the CARTO vector basemap, flight arcs,
   and airport dots together on the GPU. Pan, continuous wheel/pinch zoom,
   hover tooltips on destination dots, and auto-focus on selection changes are
-  supported. Up to three airports can be compared at once, each drawn in its
-  own colour.
+  supported. Up to three places can be compared at once, each drawn in its own
+  colour. Multi-airport cities are generated from served-city, country, and
+  proximity metadata and appear as one “All airports” selection.
 
 ## Deployment
 
