@@ -8,7 +8,6 @@
     "build": "vite build",
     "crawl": "tsx scripts/crawl.ts",
     "bundle": "tsx scripts/bundle.ts",
-    "basemap": "tsx scripts/basemap.ts",
     "deploy": "wrangler deploy"
   },
   "type": "module",
