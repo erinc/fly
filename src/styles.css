@@ -60,7 +60,7 @@ body { background: var(--ocean); color: var(--ink); overflow: hidden; }
 .drawer-header, .panel-trigger, .panel-backdrop { display: none; }
 .slider.mobile-map-slider { display: none; }
 
-.brand { color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; text-decoration: none; }
+.brand { color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 12px; text-decoration: none; }
 
 .selector { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .picker { position: relative; display: flex; align-items: center; gap: 6px;
