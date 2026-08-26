@@ -11,9 +11,18 @@ import { createAirportSelector } from "./ui/selector.js";
 import { createSlider } from "./ui/slider.js";
 import { createToggle } from "./ui/toggle.js";
 import { createList, type ListGroup } from "./ui/list.js";
+import { createInsights } from "./ui/insights.js";
 import { createPanel } from "./ui/panel.js";
 import { originColor, MAX_AIRPORTS } from "./theme.js";
-import { parseState, routeLimit, toSearch, type AppState } from "./state/url.js";
+import {
+  MAX_MINUTES,
+  STEP_MINUTES,
+  parseState,
+  routeLimit,
+  toSearch,
+  type AppState,
+} from "./state/url.js";
+import { analyzeReach, type InsightGroup } from "./reach/insights.js";
 import {
   flattenSelections,
   selectionCodes,
@@ -111,9 +120,10 @@ const toggle = createToggle({
 });
 
 const list = createList();
+const insights = createInsights(dataset.airports);
 
 panel = createPanel(
-  [brand, selector.el, slider.el, toggle.el, list.el],
+  [brand, selector.el, slider.el, toggle.el, insights.el, list.el],
   { initiallyOpen: state.airports.length === 0 },
 );
 app.replaceChildren(
@@ -133,10 +143,15 @@ try {
 }
 const reachLayer = createReachLayer(map);
 
-function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
+function groups(maxMinutes = routeLimit(state.minutes)): {
+  layers: OriginLayer[];
+  listGroups: ListGroup[];
+  insightGroups: InsightGroup[];
+} {
   const opts = { yearRoundOnly: state.yearRoundOnly };
   const layers: OriginLayer[] = [];
   const listGroups: ListGroup[] = [];
+  const insightGroups: InsightGroup[] = [];
   const selections = selectionsFromCodes(state.airports, dataset.metros);
   selections.forEach((selection, i) => {
     const codes = selectionCodes(selection);
@@ -151,7 +166,7 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
       const destinations = reachable(
         dataset,
         idx,
-        routeLimit(state.minutes),
+        maxMinutes,
         opts,
       );
       memberDestinations.push(destinations);
@@ -159,14 +174,24 @@ function groups(): { layers: OriginLayer[]; listGroups: ListGroup[] } {
     }
     const firstOrigin = dataset.airports[dataset.index.get(codes[0]!) ?? -1];
     if (!firstOrigin) return;
-    listGroups.push({
+    const group = {
       id: selection.kind === "metro" ? selection.metro.id : firstOrigin.iata,
       codes,
       color,
       destinations: mergeReachable(memberDestinations, originIndices),
+    };
+    listGroups.push(group);
+    insightGroups.push({
+      id: group.id,
+      codes,
+      originCountries: [...new Set(codes.flatMap((code) => {
+        const airport = dataset.airports[dataset.index.get(code) ?? -1];
+        return airport?.country ? [airport.country] : [];
+      }))],
+      destinations: group.destinations,
     });
   });
-  return { layers, listGroups };
+  return { layers, listGroups, insightGroups };
 }
 
 /** Last layers computed by draw(), reused by refocus() so selection changes
@@ -186,9 +211,13 @@ function draw(): void {
     window.cancelAnimationFrame(drawRequest);
     drawRequest = null;
   }
-  const { layers, listGroups } = groups();
+  const { layers, listGroups, insightGroups } = groups();
   lastLayers = layers;
   reachLayer.update(layers, dataset.airports);
+  const nextInsightGroups = state.minutes < MAX_MINUTES - STEP_MINUTES
+    ? groups(routeLimit(state.minutes + STEP_MINUTES)).insightGroups
+    : null;
+  insights.update(analyzeReach(dataset.airports, insightGroups, nextInsightGroups));
   list.update({ airports: dataset.airports, groups: listGroups });
 }
 
